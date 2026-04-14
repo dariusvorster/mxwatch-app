@@ -6,7 +6,11 @@ services:
     build:
       context: .
       target: migrator
+    env_file:
+      - .env
     environment:
+      # Override so migrate always targets the container volume regardless of
+      # what DATABASE_URL is in the host's .env.
       DATABASE_URL: /data/mxwatch.db
     volumes:
       - mxwatch-data:/data
@@ -29,20 +33,15 @@ services:
     dns:
       - 8.8.8.8
       - 1.1.1.1
+    env_file:
+      - .env
     environment:
+      # Containerised path overrides whatever's in .env.
       DATABASE_URL: /data/mxwatch.db
+      # Fail-fast if the host forgot to set the secret.
       MXWATCH_SECRET: ${MXWATCH_SECRET:?set MXWATCH_SECRET in .env}
-      SMTP_PORT: 2525
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
-      ALERT_SMTP_PORT: ${ALERT_SMTP_PORT:-587}
-      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
-      ALERT_SMTP_PASS: ${ALERT_SMTP_PASS:-}
-      ALERT_SMTP_FROM: ${ALERT_SMTP_FROM:-mxwatch@localhost}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_OAUTH_REDIRECT_URL: ${GOOGLE_OAUTH_REDIRECT_URL:-}
+      # Default port matches the listener inside the container.
+      SMTP_PORT: ${SMTP_PORT:-2525}
     volumes:
       - mxwatch-data:/data
     healthcheck:

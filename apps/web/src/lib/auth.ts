@@ -7,16 +7,35 @@ const baseURL =
   process.env.NEXT_PUBLIC_APP_URL ??
   'http://localhost:3000';
 
-// Comma-separated list of additional origins the server should accept auth
-// requests from. Useful when the same deployment is reached via multiple
-// hostnames (IP, LAN name, reverse-proxy, Tailscale MagicDNS, etc).
-const trustedOrigins = [
-  baseURL,
-  ...(process.env.MXWATCH_TRUSTED_ORIGINS ?? '')
+/**
+ * Origins we trust for auth requests. For self-hosted deployments the admin
+ * may expose MxWatch via LAN IP, Tailscale, a reverse-proxy hostname, a
+ * public domain, etc — all at once. Rather than ask them to list each, we
+ * trust whichever origin *matches the Host header of the request itself*.
+ *
+ * This still blocks cross-site forgery: evil.com's Origin header won't match
+ * the Host the request arrived at, so it's rejected.
+ *
+ * Admins who want a stricter allowlist can set MXWATCH_TRUSTED_ORIGINS (comma
+ * -separated) — when set, we only trust those + baseURL.
+ */
+function buildTrustedOrigins(): ((request: Request) => string[]) | string[] {
+  const explicit = (process.env.MXWATCH_TRUSTED_ORIGINS ?? '')
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean),
-];
+    .filter(Boolean);
+  if (explicit.length > 0) return [baseURL, ...explicit];
+
+  return (request: Request) => {
+    const host = request.headers.get('host');
+    if (!host) return [baseURL];
+    const fwdProto = request.headers.get('x-forwarded-proto');
+    const proto = fwdProto?.split(',')[0]?.trim() || new URL(request.url).protocol.replace(':', '');
+    return [baseURL, `${proto}://${host}`];
+  };
+}
+
+const trustedOrigins = buildTrustedOrigins();
 
 export const auth = betterAuth({
   database: drizzleAdapter(getDb(), {

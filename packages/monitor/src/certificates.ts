@@ -54,10 +54,12 @@ export async function checkCertificate(hostname: string, port: number = 443, tim
         const altNames = typeof cert.subjectaltname === 'string'
           ? cert.subjectaltname.split(',').map((s) => s.trim().replace(/^DNS:/, ''))
           : [];
+        const str = (v: string | string[] | undefined | null): string | null =>
+          Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
         done({
           authorized: socket.authorized,
-          issuer: cert.issuer?.O ?? cert.issuer?.CN ?? null,
-          subject: cert.subject?.CN ?? null,
+          issuer: str(cert.issuer?.O as any) ?? str(cert.issuer?.CN as any),
+          subject: str(cert.subject?.CN as any),
           validFrom,
           validTo,
           daysUntilExpiry: days,

@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/page-header';
 import { PillTabs, PillTabsList, PillTabsTrigger, PillTabsContent, PillTabsActiveStyle } from '@/components/pill-tabs';
 import { StatusBadge } from '@/components/status-badge';
 import {
-  buildSpfRecord, countSpfLookups, COMMON_SPF_INCLUDES,
+  buildSpfRecord, countSpfComponentLookups, COMMON_SPF_INCLUDES,
   buildDmarcRecord,
   type SpfComponent, type SpfPolicy, type DmarcPolicy,
 } from '@mxwatch/monitor/record-builder';
@@ -106,7 +106,7 @@ function SpfBuilder({ defaultDomain }: { defaultDomain: string }) {
   }, [useMx, useA, ip4, ip6, includes, customInclude]);
 
   const record = buildSpfRecord(components, policy);
-  const lookups = countSpfLookups(components);
+  const lookups = countSpfComponentLookups(components);
 
   function toggleInclude(v: string) {
     setIncludes((s) => {

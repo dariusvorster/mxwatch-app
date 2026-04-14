@@ -79,7 +79,9 @@ export default function StalwartPage() {
   );
 }
 
-type Row = NonNullable<ReturnType<typeof trpc.stalwart.list.useQuery>['data']>[number];
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@/server/routers/_app';
+type Row = inferRouterOutputs<AppRouter>['stalwart']['list'][number];
 
 function IntegrationCard({ row, expanded, onExpand, onRemove, onTest, onPull, pulling, testing }: {
   row: Row;

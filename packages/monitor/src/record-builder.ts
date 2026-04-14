@@ -39,7 +39,7 @@ export function buildSpfRecord(components: SpfComponent[], policy: SpfPolicy): s
 }
 
 /** Mechanisms that count toward RFC 7208's 10-lookup limit. */
-export function countSpfLookups(components: SpfComponent[]): number {
+export function countSpfComponentLookups(components: SpfComponent[]): number {
   return components.filter((c) => ['include', 'a', 'mx', 'exists'].includes(c.type)).length;
 }
 

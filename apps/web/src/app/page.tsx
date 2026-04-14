@@ -11,7 +11,9 @@ import { AlertRow } from '@/components/alert-row';
 import { IconBell, IconShield, IconActivity } from '@/components/icons';
 import { humanizeAlertType, severityFor, relativeTime } from '@/lib/alert-display';
 
-type DomainRow = NonNullable<ReturnType<typeof trpc.domains.list.useQuery>['data']>[number];
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@/server/routers/_app';
+type DomainRow = inferRouterOutputs<AppRouter>['domains']['list'][number];
 
 export default function DashboardPage() {
   const router = useRouter();

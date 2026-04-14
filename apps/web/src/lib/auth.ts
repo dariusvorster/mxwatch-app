@@ -19,23 +19,27 @@ const baseURL =
  * Admins who want a stricter allowlist can set MXWATCH_TRUSTED_ORIGINS (comma
  * -separated) — when set, we only trust those + baseURL.
  */
-function buildTrustedOrigins(): ((request: Request) => string[]) | string[] {
-  const explicit = (process.env.MXWATCH_TRUSTED_ORIGINS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (explicit.length > 0) return [baseURL, ...explicit];
+const explicitOrigins = (process.env.MXWATCH_TRUSTED_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-  return (request: Request) => {
-    const host = request.headers.get('host');
-    if (!host) return [baseURL];
-    const fwdProto = request.headers.get('x-forwarded-proto');
-    const proto = fwdProto?.split(',')[0]?.trim() || new URL(request.url).protocol.replace(':', '');
-    return [baseURL, `${proto}://${host}`];
-  };
+function trustedOrigins(request: Request): string[] {
+  const host = request.headers.get('host');
+  const fwdProto = request.headers.get('x-forwarded-proto');
+  const proto = fwdProto?.split(',')[0]?.trim() || new URL(request.url).protocol.replace(':', '');
+  const hostOrigin = host ? `${proto}://${host}` : null;
+  const list = [baseURL, ...explicitOrigins, ...(hostOrigin ? [hostOrigin] : [])];
+  if (process.env.MXWATCH_AUTH_DEBUG === '1') {
+    console.log('[auth] trustedOrigins', {
+      origin: request.headers.get('origin'),
+      host,
+      fwdProto,
+      returning: list,
+    });
+  }
+  return list;
 }
-
-const trustedOrigins = buildTrustedOrigins();
 
 export const auth = betterAuth({
   database: drizzleAdapter(getDb(), {

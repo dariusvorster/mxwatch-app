@@ -1,0 +1,56 @@
+services:
+  # One-shot schema push. Runs on `docker compose up` before the app starts and
+  # exits on success. Idempotent — safe to rerun after schema changes via:
+  #   docker compose run --rm mxwatch-migrate
+  mxwatch-migrate:
+    build:
+      context: .
+      target: migrator
+    environment:
+      DATABASE_URL: /data/mxwatch.db
+    volumes:
+      - mxwatch-data:/data
+    restart: "no"
+
+  mxwatch:
+    build:
+      context: .
+      target: runner
+    container_name: mxwatch
+    restart: unless-stopped
+    depends_on:
+      mxwatch-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"   # Web UI
+      - "2525:2525"   # DMARC SMTP listener (non-root port)
+    # Pin public resolvers so RBL / DNS monitors don't silently fail on hosts
+    # with broken systemd-resolved or restrictive bridge DNS.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      DATABASE_URL: /data/mxwatch.db
+      MXWATCH_SECRET: ${MXWATCH_SECRET:?set MXWATCH_SECRET in .env}
+      SMTP_PORT: 2525
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
+      ALERT_SMTP_PORT: ${ALERT_SMTP_PORT:-587}
+      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
+      ALERT_SMTP_PASS: ${ALERT_SMTP_PASS:-}
+      ALERT_SMTP_FROM: ${ALERT_SMTP_FROM:-mxwatch@localhost}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URL: ${GOOGLE_OAUTH_REDIRECT_URL:-}
+    volumes:
+      - mxwatch-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  mxwatch-data:

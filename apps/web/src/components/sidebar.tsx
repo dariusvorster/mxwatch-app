@@ -1,0 +1,320 @@
+'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { trpc } from '@/lib/trpc';
+import { useSession } from '@/lib/auth-client';
+import { ThemeToggle } from '@/components/theme-toggle';
+import {
+  IconPulse, IconDashboard, IconActivity, IconGlobe, IconShield, IconMail,
+  IconCert, IconBell, IconHistory, IconSettings,
+} from '@/components/icons';
+import type { ComponentType, SVGProps } from 'react';
+
+type IconComp = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+
+interface NavItem {
+  label: string;
+  href?: string;       // undefined = disabled / coming-soon
+  icon: IconComp;
+  badge?: { text: string; variant: 'neutral' | 'green' | 'red' };
+  matches?: RegExp;    // active when pathname matches
+}
+
+function Initial({ email }: { email?: string | null }) {
+  const letter = email?.[0]?.toUpperCase() ?? '?';
+  return (
+    <div
+      className="flex items-center justify-center rounded-full"
+      style={{
+        width: 28, height: 28,
+        background: 'var(--blue-dim)',
+        color: 'var(--blue)',
+        fontFamily: 'var(--mono)',
+        fontWeight: 600,
+        fontSize: 12,
+      }}
+    >
+      {letter}
+    </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div
+        style={{
+          fontFamily: 'var(--sans)',
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.08em',
+          color: 'var(--text3)',
+          textTransform: 'uppercase',
+          padding: '0 14px',
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+      <div className="flex flex-col gap-1 px-2">{children}</div>
+    </div>
+  );
+}
+
+function NavRow({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  const base = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '7px 10px',
+    borderRadius: 8,
+    fontFamily: 'var(--sans)',
+    fontSize: 13,
+    fontWeight: 500,
+    transition: 'background 120ms ease, color 120ms ease',
+  } as const;
+
+  const activeStyle = {
+    background: 'var(--blue-dim)',
+    color: 'var(--blue)',
+    border: '1px solid var(--blue-border)',
+  };
+  const idleStyle = {
+    color: 'var(--text2)',
+    border: '1px solid transparent',
+  };
+  const disabledStyle = {
+    color: 'var(--text3)',
+    border: '1px solid transparent',
+    cursor: 'not-allowed',
+  };
+
+  const style = !item.href ? { ...base, ...disabledStyle } : active ? { ...base, ...activeStyle } : { ...base, ...idleStyle };
+
+  const content = (
+    <>
+      <Icon size={14} />
+      <span className="flex-1 truncate">{item.label}</span>
+      {item.badge && (
+        <span
+          style={{
+            fontFamily: 'var(--mono)',
+            fontSize: 10,
+            fontWeight: 600,
+            padding: '1px 6px',
+            borderRadius: 6,
+            background:
+              item.badge.variant === 'green' ? 'var(--green-dim)' :
+              item.badge.variant === 'red' ? 'var(--red-dim)' : 'var(--bg2)',
+            color:
+              item.badge.variant === 'green' ? 'var(--green)' :
+              item.badge.variant === 'red' ? 'var(--red)' : 'var(--text2)',
+            border:
+              item.badge.variant === 'green' ? '1px solid var(--green-border)' :
+              item.badge.variant === 'red' ? '1px solid var(--red-border)' : '1px solid var(--border)',
+          }}
+        >
+          {item.badge.text}
+        </span>
+      )}
+    </>
+  );
+
+  if (!item.href) {
+    return (
+      <div style={style} title="Coming soon">
+        {content}
+      </div>
+    );
+  }
+  return (
+    <Link
+      href={item.href}
+      style={style}
+      className={active ? '' : 'hover:[background:var(--bg2)]'}
+    >
+      {content}
+    </Link>
+  );
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const domains = trpc.domains.list.useQuery(undefined, { enabled: !!session });
+  const activeAlerts = trpc.alerts.history.useQuery({ onlyActive: true }, { enabled: !!session });
+
+  const domainCount = domains.data?.length ?? 0;
+  const activeAlertCount = activeAlerts.data?.length ?? 0;
+  // Red badge if any active blacklist alert
+  const blacklistActive = (activeAlerts.data ?? []).some((a) => a.type === 'blacklist_listed');
+
+  const nav: Array<{ label: string; items: NavItem[] }> = [
+    {
+      label: 'Overview',
+      items: [
+        { label: 'Dashboard', href: '/', icon: IconDashboard, matches: /^\/$/ },
+        { label: 'Activity', href: '/activity', icon: IconActivity, matches: /^\/activity/ },
+      ],
+    },
+    {
+      label: 'Monitoring',
+      items: [
+        {
+          label: 'Domains', href: '/', icon: IconGlobe,
+          badge: domainCount > 0 ? { text: String(domainCount), variant: 'neutral' } : undefined,
+          matches: /^\/domains(\/|$)/,
+        },
+        {
+          label: 'Blacklists', href: '/blacklists', icon: IconShield,
+          badge: blacklistActive ? { text: '!', variant: 'red' } : undefined,
+          matches: /^\/blacklists/,
+        },
+        {
+          label: 'DMARC reports', href: '/reports', icon: IconMail,
+          badge: domainCount > 0 ? { text: 'on', variant: 'green' } : undefined,
+          matches: /^\/reports/,
+        },
+        { label: 'Certificates', href: '/certificates', icon: IconCert, matches: /^\/certificates/ },
+        { label: 'Watched domains', href: '/watched', icon: IconActivity, matches: /^\/watched/ },
+      ],
+    },
+    {
+      label: 'Tools',
+      items: [
+        {
+          label: 'Deliverability test', href: '/tools/deliverability', icon: IconMail,
+          matches: /^\/tools\/deliverability/,
+        },
+        {
+          label: 'Record builder', href: '/tools/record-builder', icon: IconSettings,
+          matches: /^\/tools\/record-builder/,
+        },
+      ],
+    },
+    {
+      label: 'Integrations',
+      items: [
+        {
+          label: 'Stalwart', href: '/integrations/stalwart', icon: IconPulse,
+          matches: /^\/integrations\/stalwart/,
+        },
+      ],
+    },
+    {
+      label: 'Alerts',
+      items: [
+        {
+          label: 'Alert rules', href: '/settings/alerts', icon: IconBell,
+          badge: activeAlertCount > 0 ? { text: String(activeAlertCount), variant: 'red' } : undefined,
+          matches: /^\/settings\/alerts/,
+        },
+        { label: 'History', href: '/history', icon: IconHistory, matches: /^\/history/ },
+      ],
+    },
+  ];
+
+  return (
+    <aside
+      style={{
+        width: 220,
+        flexShrink: 0,
+        background: 'var(--surf)',
+        borderRight: '1px solid var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+      }}
+    >
+      {/* Logo */}
+      <div style={{ padding: '16px 16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <IconPulse size={20} style={{ color: 'var(--blue-mid)' }} />
+        <div
+          style={{
+            fontFamily: 'var(--mono)', fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em',
+            display: 'flex', alignItems: 'baseline', gap: 2,
+          }}
+        >
+          <span style={{ color: 'var(--text)' }}>mx</span>
+          <span style={{ color: 'var(--blue-mid)' }}>watch</span>
+        </div>
+        <span
+          style={{
+            fontFamily: 'var(--mono)', fontSize: 8, fontWeight: 600,
+            padding: '2px 5px', borderRadius: 4,
+            background: 'var(--blue-dim)', color: 'var(--blue)',
+            border: '1px solid var(--blue-border)',
+            letterSpacing: '0.04em',
+          }}
+        >
+          v3
+        </span>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
+        {nav.map((s) => (
+          <Section key={s.label} label={s.label}>
+            {s.items.map((item) => (
+              <NavRow
+                key={item.label}
+                item={item}
+                active={!!item.href && !!item.matches?.test(pathname ?? '')}
+              />
+            ))}
+          </Section>
+        ))}
+      </nav>
+
+      {/* User + theme toggle footer */}
+      <div
+        style={{
+          padding: 12,
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: 'var(--surf)',
+        }}
+      >
+        {session ? (
+          <>
+            <Initial email={session.user?.email} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500,
+                  color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+              >
+                {session.user?.name ?? session.user?.email}
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
+                self-hosted · v3
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, fontSize: 12, color: 'var(--text3)' }}>Not signed in</div>
+        )}
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          title="Settings"
+          style={{
+            width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 6, background: 'var(--bg2)', color: 'var(--text2)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <IconSettings size={14} />
+        </Link>
+        <ThemeToggle />
+      </div>
+    </aside>
+  );
+}

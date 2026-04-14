@@ -1,0 +1,65 @@
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+
+  const { startSmtpListener } = await import('@mxwatch/monitor/smtp-listener');
+  const { scheduleJob } = await import('@mxwatch/monitor/scheduler');
+  const { routeInboundMail } = await import('./lib/inbound-mail-router');
+  const { runAllDnsChecks, runAllBlacklistChecks, runAllSmtpChecks, runAllCertChecks, runAllWatchedChecks, pullAllStalwart } = await import('./lib/scheduled-checks');
+
+  // SMTP listener — routes DMARC XML and deliverability-test mail
+  const smtpPort = Number(process.env.SMTP_PORT ?? 2525);
+  if (process.env.MXWATCH_DISABLE_SMTP !== '1') {
+    try {
+      startSmtpListener(smtpPort, routeInboundMail);
+    } catch (e) {
+      console.error('[instrumentation] failed to start SMTP listener', e);
+    }
+  }
+
+  // Hourly DNS health checks for all active domains
+  const { HOUR } = await import('@mxwatch/monitor/scheduler');
+  scheduleJob({
+    name: 'dns-health-check',
+    intervalMs: HOUR,
+    task: runAllDnsChecks,
+  });
+
+  // Every 6 hours: blacklist sweep for domains with a configured sending IP
+  scheduleJob({
+    name: 'blacklist-check',
+    intervalMs: 6 * HOUR,
+    task: runAllBlacklistChecks,
+  });
+
+  // Every 2 hours: SMTP health check against each domain's primary MX
+  scheduleJob({
+    name: 'smtp-check',
+    intervalMs: 2 * HOUR,
+    task: runAllSmtpChecks,
+  });
+
+  // Every 2 hours: watched external domains sweep (DMARC + MX + RBL)
+  scheduleJob({
+    name: 'watched-check',
+    intervalMs: 2 * HOUR,
+    task: runAllWatchedChecks,
+  });
+
+  // Every 60 seconds: Stalwart management-API pull for any active integrations
+  scheduleJob({
+    name: 'stalwart-pull',
+    intervalMs: 60 * 1000,
+    task: pullAllStalwart,
+  });
+
+  // Daily at 03:00 UTC: TLS certificate check for mail/web/mx hostnames
+  const { scheduleDailyUtc: scheduleDailyCert } = await import('@mxwatch/monitor/scheduler');
+  scheduleDailyCert('cert-check', 3, runAllCertChecks);
+
+  // Daily at 04:00 UTC: Google Postmaster Tools sync (skipped when integration not configured)
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const { scheduleDailyUtc } = await import('@mxwatch/monitor/scheduler');
+    const { syncAllPostmaster } = await import('./lib/sync-postmaster');
+    scheduleDailyUtc('postmaster-sync', 4, syncAllPostmaster);
+  }
+}

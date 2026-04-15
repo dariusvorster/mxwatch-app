@@ -45,6 +45,11 @@ function LogsPageBody() {
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const domainIdFilter = params.get('domainId') ?? '';
+  const domainsList = trpc.domains.list.useQuery(undefined, { enabled: !!session });
+  const domainName = domainIdFilter
+    ? domainsList.data?.find((d) => d.id === domainIdFilter)?.domain ?? null
+    : null;
 
   useEffect(() => { if (!isPending && !session) router.push('/login'); }, [isPending, session, router]);
 
@@ -54,6 +59,7 @@ function LogsPageBody() {
       level: level || undefined,
       category: category || undefined,
       search: search || undefined,
+      domainId: domainIdFilter || undefined,
       limit: 200,
     },
     { enabled: !!session },
@@ -94,6 +100,33 @@ function LogsPageBody() {
         <Input placeholder="category (dns, rbl, auth…)" value={category} onChange={(e) => setCategory(e.target.value)} style={{ maxWidth: 200 }} />
         <Input placeholder="search messages" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 260 }} />
         <Button variant="outline" onClick={download}>Download (7d)</Button>
+        {domainIdFilter && (
+          <span
+            style={{
+              fontFamily: 'var(--mono)', fontSize: 11,
+              padding: '5px 10px', borderRadius: 999,
+              background: 'var(--blue-dim)', color: 'var(--blue)',
+              border: '1px solid var(--blue-border)',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            domain: {domainName ?? domainIdFilter.slice(0, 8)}
+            <button
+              type="button"
+              onClick={() => {
+                const sp = new URLSearchParams(params.toString());
+                sp.delete('domainId');
+                router.replace(`/logs${sp.toString() ? `?${sp}` : ''}`);
+              }}
+              style={{
+                background: 'none', border: 'none', color: 'var(--blue)',
+                cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontSize: 11,
+              }}
+            >
+              ×
+            </button>
+          </span>
+        )}
       </div>
 
       <Card>

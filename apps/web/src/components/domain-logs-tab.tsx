@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,17 +36,25 @@ export function DomainLogsTab({ domainId }: { domainId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'inline-flex', gap: 3, padding: 3, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', width: 'fit-content' }}>
-        {(['all', 'errors', 'jobs'] as Filter[]).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{
-              padding: '5px 14px', fontSize: 11, fontFamily: 'var(--sans)', cursor: 'pointer',
-              border: 'none', borderRadius: 6,
-              background: filter === f ? 'var(--surf)' : 'transparent',
-              color: filter === f ? 'var(--text)' : 'var(--text3)',
-              fontWeight: filter === f ? 500 : 400,
-            }}>{f === 'all' ? 'All' : f === 'errors' ? 'Errors' : 'Jobs'}</button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'inline-flex', gap: 3, padding: 3, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+          {(['all', 'errors', 'jobs'] as Filter[]).map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{
+                padding: '5px 14px', fontSize: 11, fontFamily: 'var(--sans)', cursor: 'pointer',
+                border: 'none', borderRadius: 6,
+                background: filter === f ? 'var(--surf)' : 'transparent',
+                color: filter === f ? 'var(--text)' : 'var(--text3)',
+                fontWeight: filter === f ? 500 : 400,
+              }}>{f === 'all' ? 'All' : f === 'errors' ? 'Errors' : 'Jobs'}</button>
+          ))}
+        </div>
+        <Link
+          href={`/logs?domainId=${domainId}${filter === 'errors' ? '&level=error' : ''}`}
+          style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blue)' }}
+        >
+          Open in full logs view →
+        </Link>
       </div>
 
       {filter !== 'errors' && (

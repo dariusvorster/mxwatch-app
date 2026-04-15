@@ -76,7 +76,7 @@ Requires **Node 20+** and **pnpm 9+**.
 
 1. **Add your first domain** — verification + immediate DNS check
 2. **Mail server architecture** — auto-detects MX + IP + SMTP banner (Stalwart / Postfix / Mailcow / Exchange), picks direct / NAT relay / split / managed
-3. **Server integration** (optional) — Stalwart API connect & test, or skip to external-only monitoring
+3. **Server integration** (optional) — pre-populated from the Step 2 auto-detect: server type (Stalwart / Mailcow / Postfix / …), architecture, and API base URL. Add a token to enable deep stats (queue depth, delivery rates, auth failures, bounces), or skip for external-only monitoring
 4. **Alert preferences** — pre-filled email + per-rule toggles (blacklist, DNS change, health drop)
 
 ### Monitoring

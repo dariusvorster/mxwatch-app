@@ -37,6 +37,15 @@ export default function OnboardingPage() {
   const [domainId, setDomainId] = useState<string | null>(null);
   const [domainName, setDomainName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Threaded from Step 2's detectMailServer result into Step 3 so the server
+  // integration can pre-populate serverType / architecture / API URL without
+  // asking the user to retype anything.
+  const [detection, setDetection] = useState<{
+    serverType: 'stalwart' | 'mailcow' | 'postfix' | 'postfix_dovecot' | 'mailu' | 'maddy' | 'haraka' | 'exchange' | 'unknown';
+    architecture: Architecture;
+    apiEndpoint: string | null;
+    confidence: 'high' | 'medium' | 'low' | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!sessionPending && !session) router.replace('/login');
@@ -109,7 +118,7 @@ export default function OnboardingPage() {
         <Step2Architecture
           domainId={domainId}
           domainName={domainName}
-          onDone={() => { setStep(3); setError(null); }}
+          onDone={(d) => { setDetection(d); setStep(3); setError(null); }}
           onSkip={() => { setStep(3); setError(null); }}
           error={error}
           setError={setError}
@@ -118,6 +127,8 @@ export default function OnboardingPage() {
 
       {step === 3 && (
         <Step3Integration
+          domainId={domainId}
+          detection={detection}
           onDone={() => { setStep(4); setError(null); }}
           onSkip={() => { setStep(4); setError(null); }}
         />
@@ -222,12 +233,19 @@ function Step1Domain({
   );
 }
 
+interface DetectionPayload {
+  serverType: 'stalwart' | 'mailcow' | 'postfix' | 'postfix_dovecot' | 'mailu' | 'maddy' | 'haraka' | 'exchange' | 'unknown';
+  architecture: Architecture;
+  apiEndpoint: string | null;
+  confidence: 'high' | 'medium' | 'low' | null;
+}
+
 function Step2Architecture({
   domainId, domainName, onDone, onSkip, error, setError,
 }: {
   domainId: string;
   domainName: string;
-  onDone: () => void;
+  onDone: (detection: DetectionPayload) => void;
   onSkip: () => void;
   error: string | null;
   setError: (e: string | null) => void;
@@ -262,7 +280,12 @@ function Step2Architecture({
       });
       await advance.mutateAsync({ minStep: 2 });
       await Promise.all([utils.domains.list.invalidate(), utils.onboarding.status.invalidate()]);
-      onDone();
+      onDone({
+        serverType: (detect.data?.detectedServer ?? 'unknown') as DetectionPayload['serverType'],
+        architecture,
+        apiEndpoint: detect.data?.fingerprint?.apiEndpoint ?? null,
+        confidence: detect.data?.fingerprint?.confidence ?? null,
+      });
     } catch (e: any) {
       setError(e.message ?? 'Failed to save topology');
     }
@@ -388,25 +411,47 @@ function Step2Architecture({
   );
 }
 
-function Step3Integration({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
-  const createStalwart = trpc.stalwart.create.useMutation();
-  const testStalwart = trpc.stalwart.test.useMutation();
+function Step3Integration({
+  domainId, detection, onDone, onSkip,
+}: {
+  domainId: string | null;
+  detection: DetectionPayload | null;
+  onDone: () => void;
+  onSkip: () => void;
+}) {
+  const createServer = trpc.serverIntegrations.create.useMutation();
+  const testServer = trpc.serverIntegrations.test.useMutation();
   const advance = trpc.onboarding.advance.useMutation();
   const utils = trpc.useUtils();
 
-  const [baseUrl, setBaseUrl] = useState('');
+  // Pre-populate from Step 2's detection result — the user already confirmed
+  // architecture there, so we don't re-ask here.
+  const [baseUrl, setBaseUrl] = useState(detection?.apiEndpoint ?? '');
   const [token, setToken] = useState('');
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const detectedLabel = detection?.serverType && detection.serverType !== 'unknown'
+    ? `We detected ${detection.serverType}${detection.confidence ? ` (${detection.confidence} confidence)` : ''}.`
+    : 'We could not auto-detect the server. You can still connect manually.';
+
   async function submit() {
     setErr(null);
     setTestResult(null);
-    if (!baseUrl || !token) return setErr('Base URL and API token are required.');
+    if (!baseUrl || !token) return setErr('API base URL and token are required.');
     try {
-      const created = await createStalwart.mutateAsync({ name: 'Primary mail server', baseUrl, token });
-      const test = await testStalwart.mutateAsync({ id: created.id });
-      setTestResult({ ok: !!test.ok, message: test.ok ? 'Connected — pulling stats.' : (test.error ?? 'Test failed') });
+      const created = await createServer.mutateAsync({
+        name: 'Primary mail server',
+        serverType: detection?.serverType ?? 'unknown',
+        architecture: detection?.architecture ?? 'direct',
+        baseUrl: baseUrl.trim(),
+        token: token.trim(),
+        domainId: domainId ?? undefined,
+        autoDetected: !!detection && detection.serverType !== 'unknown',
+        detectionConfidence: detection?.confidence ?? undefined,
+      });
+      const test = await testServer.mutateAsync({ id: created.id });
+      setTestResult({ ok: !!test.ok, message: test.ok ? 'Connected — pulling stats.' : (test.message ?? 'Test failed') });
       if (test.ok) {
         await advance.mutateAsync({ minStep: 3 });
         await utils.onboarding.status.invalidate();
@@ -430,15 +475,21 @@ function Step3Integration({ onDone, onSkip }: { onDone: () => void; onSkip: () =
         <CardDescription>Deep stats — queue depth, delivery rates, TLS percent — require an API connection. External monitoring works without it.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div style={{
+          background: 'var(--surf2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+          padding: '10px 12px', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text2)',
+        }}>
+          {detectedLabel}
+        </div>
         <div className="space-y-2">
-          <Label htmlFor="baseUrl">Stalwart base URL</Label>
+          <Label htmlFor="baseUrl">API base URL</Label>
           <Input id="baseUrl" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://mail.example.com" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="token">API token</Label>
           <Input id="token" type="password" value={token} onChange={(e) => setToken(e.target.value)} />
           <p className="text-xs text-muted-foreground">
-            Create a read-only token in Stalwart admin. Postfix/Mailcow users: skip this and use the agent install (Settings → Integrations).
+            Stalwart: admin → API tokens. Mailcow: admin → Access → API → add X-API-Key. Postfix: skip (agent install coming soon).
           </p>
         </div>
         {testResult && (
@@ -446,8 +497,8 @@ function Step3Integration({ onDone, onSkip }: { onDone: () => void; onSkip: () =
         )}
         {err && <p className="text-sm text-destructive">{err}</p>}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Button onClick={submit} disabled={createStalwart.isPending || testStalwart.isPending}>
-            {createStalwart.isPending || testStalwart.isPending ? 'Connecting…' : 'Connect & test'}
+          <Button onClick={submit} disabled={createServer.isPending || testServer.isPending}>
+            {createServer.isPending || testServer.isPending ? 'Connecting…' : 'Connect & test'}
           </Button>
           <button
             type="button"

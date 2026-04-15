@@ -20,6 +20,9 @@ export default function InboxSetupPage() {
   const utils = trpc.useUtils();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Set to true when the user clicks "Change mode" from the already-
+  // configured gate — lets them run the wizard again.
+  const [force, setForce] = useState(false);
   const [mode, setMode] = useState<Mode>('own_domain');
   const [inboxDomain, setInboxDomain] = useState('');
   const [stalwartId, setStalwartId] = useState('');
@@ -57,16 +60,20 @@ export default function InboxSetupPage() {
 
   if (isPending || !session || config.isLoading) return <main>Loading…</main>;
 
-  if (config.data?.verified) {
+  if (config.data?.verified && !force) {
     return (
       <main style={{ maxWidth: 520, margin: '60px auto', padding: 24 }}>
         <Card>
           <CardHeader><CardTitle>Inbox already configured</CardTitle></CardHeader>
-          <CardContent>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 10 }}>
+          <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>
               Mode: <b>{config.data.mode}</b>
+              {config.data.inboxDomain && <> · <span style={{ fontFamily: 'var(--mono)' }}>{config.data.inboxDomain}</span></>}
             </div>
-            <Button onClick={() => router.push('/tools/deliverability')}>Go to deliverability tests</Button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Button onClick={() => router.push('/tools/deliverability')}>Go to deliverability tests</Button>
+              <Button variant="outline" onClick={() => { setForce(true); setStep(1); }}>Change mode</Button>
+            </div>
           </CardContent>
         </Card>
       </main>

@@ -15,6 +15,7 @@ export default function DeliverabilityPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [testId, setTestId] = useState<string | null>(null);
+  const utils = trpc.useUtils();
   const create = trpc.deliverability.create.useMutation({ onSuccess: (r) => setTestId(r.id) });
   const cancelMut = trpc.deliverability.cancel.useMutation();
   const test = trpc.deliverability.get.useQuery(
@@ -157,10 +158,17 @@ export default function DeliverabilityPage() {
           <button
             type="button"
             onClick={async () => {
-              if (testId) {
-                try { await cancelMut.mutateAsync({ id: testId }); } catch { /* ignore */ }
-              }
+              const id = testId;
+              // Clear UI first so the waiting panel disappears instantly.
               setTestId(null);
+              if (id) {
+                try {
+                  await cancelMut.mutateAsync({ id });
+                  // Drop cached `get` result so the panel doesn't reappear
+                  // if the user clicks that test row in the history.
+                  utils.deliverability.get.reset({ id });
+                } catch { /* server cancel failed — UI is already cleared */ }
+              }
               void history.refetch();
             }}
             disabled={cancelMut.isPending}

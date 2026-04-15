@@ -42,6 +42,11 @@ services:
       MXWATCH_SECRET: ${MXWATCH_SECRET:?set MXWATCH_SECRET in .env}
       # Default port matches the listener inside the container.
       SMTP_PORT: ${SMTP_PORT:-2525}
+      # Phase-8 logging config. Pinning the dir inside the container volume
+      # keeps rotated files on the same persistent mount as the DB.
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_DIR: /data/logs
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
     volumes:
       - mxwatch-data:/data
     healthcheck:

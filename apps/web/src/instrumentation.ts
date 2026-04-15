@@ -52,6 +52,18 @@ export async function register() {
     task: pullAllStalwart,
   });
 
+  // V4 server intelligence — per-integration pulls backed by the adapter
+  // registry. Unsupported capabilities (e.g. Postfix without agent) are
+  // swallowed inside each runner so a single stub doesn't kill the loop.
+  const { MINUTE } = await import('@mxwatch/monitor/scheduler');
+  const {
+    pullAllServerStats, pullAllQueueSnapshots, pullAllAuthFailures, aggregateAllRecipientDomainStats,
+  } = await import('./lib/run-server-integrations');
+  scheduleJob({ name: 'server-stats-pull', intervalMs: MINUTE, task: pullAllServerStats });
+  scheduleJob({ name: 'queue-snapshot', intervalMs: 5 * MINUTE, task: pullAllQueueSnapshots });
+  scheduleJob({ name: 'auth-failure-pull', intervalMs: 5 * MINUTE, task: pullAllAuthFailures });
+  scheduleJob({ name: 'recipient-domain-aggregate', intervalMs: HOUR, task: aggregateAllRecipientDomainStats });
+
   // Daily at 03:00 UTC: TLS certificate check for mail/web/mx hostnames
   const { scheduleDailyUtc: scheduleDailyCert } = await import('@mxwatch/monitor/scheduler');
   scheduleDailyCert('cert-check', 3, runAllCertChecks);

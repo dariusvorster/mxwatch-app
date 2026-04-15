@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const domains = trpc.domains.list.useQuery(undefined, { enabled: !!session });
   const activeAlerts = trpc.alerts.history.useQuery({ onlyActive: true }, { enabled: !!session });
   const onboarding = trpc.onboarding.status.useQuery(undefined, { enabled: !!session });
+  const channels = trpc.alerts.listChannels.useQuery(undefined, { enabled: !!session });
 
   // Per-domain latest DNS snapshot + blacklist check — fan out with useQueries.
   const snapQueries = trpc.useQueries((t) =>
@@ -143,7 +144,7 @@ export default function DashboardPage() {
       <section>
         <SectionLabel>Domains</SectionLabel>
         {domainList.length === 0 ? (
-          <EmptyCard message="No domains yet." cta={{ href: '/onboarding', label: 'Add your first domain' }} />
+          <FirstRunCard hasChannels={(channels.data?.length ?? 0) > 0} />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             {domainList.map((d, i) => (
@@ -177,19 +178,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div
-            style={{
-              background: 'var(--surf)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '16px 18px',
-              fontFamily: 'var(--sans)',
-              fontSize: 13,
-              color: 'var(--text3)',
-            }}
-          >
-            No active alerts.
-          </div>
+          <NoAlertsCard hasChannels={(channels.data?.length ?? 0) > 0} hasDomains={domainList.length > 0} />
         )}
       </section>
     </div>
@@ -261,6 +250,143 @@ function EmptyCard({ message, cta }: { message: string; cta?: { href: string; la
           {' '}
           <Link href={cta.href} style={{ color: 'var(--blue)', fontWeight: 500 }}>{cta.label}</Link>
         </>
+      )}
+    </div>
+  );
+}
+
+function FirstRunCard({ hasChannels }: { hasChannels: boolean }) {
+  const steps: { done: boolean; label: string; detail: string; href: string; cta: string }[] = [
+    {
+      done: false,
+      label: 'Add your first domain',
+      detail: 'Paste a domain and we\'ll run SPF, DKIM, DMARC, MX and RBL checks automatically.',
+      href: '/onboarding',
+      cta: 'Start setup',
+    },
+    {
+      done: hasChannels,
+      label: 'Connect an alert channel',
+      detail: 'Email, Slack, ntfy, or a webhook — alerts fire the moment something breaks.',
+      href: '/settings/alerts',
+      cta: hasChannels ? 'Manage channels' : 'Add channel',
+    },
+    {
+      done: false,
+      label: 'Connect your mail server',
+      detail: 'Optional — pull queue + bounce data from Stalwart, Mailcow, Resend, Postmark, and more.',
+      href: '/servers/new',
+      cta: 'Add integration',
+    },
+  ];
+  return (
+    <div
+      style={{
+        background: 'var(--surf)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '20px 22px',
+      }}
+    >
+      <div style={{ fontFamily: 'var(--sans)', fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+        Welcome to MxWatch
+      </div>
+      <div style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--text3)', marginTop: 3, marginBottom: 16 }}>
+        Three short steps and you're monitoring.
+      </div>
+      <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {steps.map((s, i) => (
+          <li
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              padding: '12px 14px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            <div
+              style={{
+                width: 22, height: 22, borderRadius: 999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: s.done ? 'var(--green-dim)' : 'var(--blue-dim)',
+                color: s.done ? 'var(--green)' : 'var(--blue)',
+                fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              {s.done ? '✓' : i + 1}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>
+                {s.label}
+              </div>
+              <div style={{ fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                {s.detail}
+              </div>
+            </div>
+            <Link
+              href={s.href}
+              style={{
+                fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600,
+                padding: '6px 12px', borderRadius: 6,
+                background: s.done ? 'transparent' : 'var(--blue)',
+                color: s.done ? 'var(--text2)' : '#fff',
+                border: `1px solid ${s.done ? 'var(--border2)' : 'var(--blue)'}`,
+                whiteSpace: 'nowrap',
+                textDecoration: 'none',
+              }}
+            >
+              {s.cta}
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function NoAlertsCard({ hasChannels, hasDomains }: { hasChannels: boolean; hasDomains: boolean }) {
+  return (
+    <div
+      style={{
+        background: 'var(--surf)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '16px 18px',
+        fontFamily: 'var(--sans)',
+        fontSize: 13,
+        color: 'var(--text3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+      }}
+    >
+      <div>
+        <div style={{ color: 'var(--text2)', fontWeight: 500 }}>No active alerts.</div>
+        {hasDomains && !hasChannels && (
+          <div style={{ fontSize: 12, marginTop: 3 }}>
+            Set up an alert channel so you find out the moment something breaks.
+          </div>
+        )}
+      </div>
+      {hasDomains && !hasChannels && (
+        <Link
+          href="/settings/alerts"
+          style={{
+            fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600,
+            padding: '6px 12px', borderRadius: 6,
+            background: 'var(--blue)', color: '#fff',
+            border: '1px solid var(--blue)',
+            textDecoration: 'none', whiteSpace: 'nowrap',
+          }}
+        >
+          Add channel
+        </Link>
       )}
     </div>
   );

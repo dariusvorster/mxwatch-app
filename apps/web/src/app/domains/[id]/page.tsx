@@ -20,6 +20,7 @@ import { DomainHeader } from '@/components/domain-header';
 import { PillTabs, PillTabsList, PillTabsTrigger, PillTabsContent, PillTabsActiveStyle } from '@/components/pill-tabs';
 import { DomainOverview } from '@/components/domain-overview';
 import { DomainLogsTab } from '@/components/domain-logs-tab';
+import { DomainIntegrationsWidget } from '@/components/domain-integrations-widget';
 import { useState } from 'react';
 
 export default function DomainDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -109,6 +110,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
         <PillTabsContent value="overview">
           <div className="space-y-4">
             <DomainOverview domainId={id} />
+            <DomainIntegrationsWidget domainId={id} />
             <DkimSelectorsCard domainId={id} live={live.data} />
             {live.data && (
               <IssuesCard domain={domain.data.domain} health={live.data} />

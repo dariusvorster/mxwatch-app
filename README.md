@@ -131,7 +131,7 @@ Every action and every scheduled job writes to two sinks: append-only NDJSON (`$
 ### Tools
 
 - **Record Builder** — SPF wizard with common provider templates and a live lookup counter, DMARC wizard with migration guidance
-- **Deliverability Test** — send to a unique inbox, get a mail-tester-style 0–10 score
+- **Deliverability Test** — send to a unique inbox, get a mail-tester-style 0–10 score. Self-hosters pick one of three inbox modes on first use (see below); cloud continues to use `*@inbox.mxwatch.app`.
 - **DNS Propagation Checker** (`/tools/propagation`) — queries 19 public resolvers across 5 regions, with optional substring match against an expected value (e.g. confirm a new SPF record has propagated everywhere)
 - **IP warm-up scheduler** — geometric ramp plan with daily targets
 
@@ -146,6 +146,18 @@ The deepest-visibility part of MxWatch. Once you connect a mail-server API, MxWa
 - **Bounce intelligence** — DSN parser (RFC 3464) extracts Final-Recipient / Status / Diagnostic-Code, classifies hard / soft / policy, detects RBL mentions in the diagnostic. Correlator joins each bounce with active RBL listings + recent bounce spikes per recipient domain to assign severity and a suggested action.
 - **Per-recipient-domain delivery rates** — the Postmaster-Tools-for-everyone view. Sent / delivered / deferred / bounced / rate per provider (gmail.com, outlook.com, yahoo.com, …) over 1h / 24h / 7d / 30d windows. Anything below 95% gets flagged as a problem domain.
 - **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed), `/delivery-rates` (cross-server provider rate dashboard with 1h / 24h / 7d / 30d windows).
+
+### Deliverability inbox (self-hosted)
+
+Cloud users get `*@inbox.mxwatch.app` out of the box. Self-hosters pick a mode on first visit to the deliverability test page (or from `Settings → Deliverability inbox`):
+
+| Mode | Requirements | How it works |
+|---|---|---|
+| **Own domain inbox** (recommended) | A domain + port 25 reachable on the MxWatch host | Publish `MX <inbox-domain> 10 <mxwatch-host>` at your DNS provider. MxWatch's SMTP listener accepts `test-*@<inbox-domain>` and scores automatically. |
+| **Stalwart relay** | A Stalwart integration configured in MxWatch | MxWatch auto-uploads a Sieve script (`vnd.stalwart.http` extension) that forwards `mxwatch-test-*@<your-domain>` to the `/api/webhooks/stalwart-delivery` endpoint over HMAC. If auto-upload fails, the script is shown for manual paste. |
+| **Manual header paste** | Nothing | Send a test email, open "Show original" in your mail client, paste the raw headers into MxWatch. Scored by the same engine. |
+
+Setup lives at `/setup/inbox`. The three modes share one scoring engine (10 checks across Authentication / Infrastructure / Content), so historical scores remain comparable when you switch modes.
 
 ### Integrations
 

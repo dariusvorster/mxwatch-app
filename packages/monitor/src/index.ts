@@ -12,3 +12,5 @@ export * from './record-builder';
 export * from './stalwart-client';
 export * from './server-detect';
 export * from './adapters';
+export * from './bounce-parser';
+export * from './bounce-correlator';

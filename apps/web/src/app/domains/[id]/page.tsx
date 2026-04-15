@@ -244,6 +244,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
                         return (
                           <div key={name} className="space-y-2">
                             <BlacklistFixThis name={name} ip={r.ipAddress ?? ''} />
+                            {key && <RblFactsChip rblKey={key} />}
                             {key && (
                               <DelistWizard
                                 domainId={id}
@@ -750,6 +751,69 @@ function UnexpectedSendersCard({ domainId }: { domainId: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const DELIST_METHOD_LABEL: Record<string, string> = {
+  self_service_form: 'Self-service form',
+  email_request: 'Email request',
+  auto_expires: 'Auto-expires',
+  reputation_based: 'Reputation-based',
+  portal_registration: 'Portal registration',
+  manual_review: 'Manual review',
+};
+
+function RblFactsChip({ rblKey }: { rblKey: string }) {
+  const know = trpc.delist.getRBLInfo.useQuery({ rblName: rblKey });
+  const k = know.data;
+  if (!k) return null;
+  const method = DELIST_METHOD_LABEL[k.delistMethod] ?? k.delistMethod;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6,
+        fontFamily: 'var(--mono)',
+        fontSize: 10,
+        color: 'var(--text3)',
+      }}
+    >
+      <Chip>Method: <strong style={{ color: 'var(--text2)' }}>{method}</strong></Chip>
+      <Chip>Clears in: <strong style={{ color: 'var(--text2)' }}>{k.typicalClearTime}</strong></Chip>
+      {k.autoExpires && k.autoExpireHours && (
+        <Chip>Auto-expires after <strong style={{ color: 'var(--text2)' }}>{k.autoExpireHours}h</strong></Chip>
+      )}
+      {k.delistUrl && (
+        <Chip>
+          <a href={k.delistUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
+            Delist form ↗
+          </a>
+        </Chip>
+      )}
+      {k.delistEmail && (
+        <Chip>
+          <a href={`mailto:${k.delistEmail}`} style={{ color: 'var(--blue)' }}>
+            {k.delistEmail}
+          </a>
+        </Chip>
+      )}
+    </div>
+  );
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        padding: '2px 8px',
+        borderRadius: 999,
+        background: 'var(--bg2)',
+        border: '1px solid var(--border)',
+      }}
+    >
+      {children}
+    </span>
   );
 }
 

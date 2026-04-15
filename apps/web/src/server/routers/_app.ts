@@ -23,6 +23,7 @@ import { authFailuresRouter } from './auth-failures';
 import { securityRouter } from './security';
 import { logsRouter } from './logs';
 import { profileRouter } from './profile';
+import { inboxSetupRouter } from './inbox-setup';
 
 export const appRouter = router({
   domains: domainsRouter,
@@ -49,6 +50,7 @@ export const appRouter = router({
   security: securityRouter,
   logs: logsRouter,
   profile: profileRouter,
+  inboxSetup: inboxSetupRouter,
 });
 
 export type AppRouter = typeof appRouter;

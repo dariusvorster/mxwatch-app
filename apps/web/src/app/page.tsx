@@ -77,31 +77,7 @@ export default function DashboardPage() {
       />
 
       {onboarding.data && onboarding.data.step > 0 && onboarding.data.step < 4 && (
-        <Link
-          href="/onboarding"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: '12px 16px',
-            background: 'var(--blue-dim)',
-            border: '1px solid var(--blue-border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--text)',
-            textDecoration: 'none',
-          }}
-        >
-          <div>
-            <div style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500 }}>
-              Continue setup — step {onboarding.data.step + 1} of 4
-            </div>
-            <div style={{ fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-              Finish configuring architecture, server integration, and alerts.
-            </div>
-          </div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blue)' }}>Resume →</div>
-        </Link>
+        <OnboardingResumeBanner step={onboarding.data.step} />
       )}
 
       {/* Summary row */}
@@ -257,6 +233,60 @@ function EmptyCard({ message, cta }: { message: string; cta?: { href: string; la
         </>
       )}
     </div>
+  );
+}
+
+function OnboardingResumeBanner({ step }: { step: number }) {
+  const STEPS = [
+    { n: 1, label: 'Add domain' },
+    { n: 2, label: 'Choose architecture' },
+    { n: 3, label: 'Connect mail server' },
+    { n: 4, label: 'Set up alerts' },
+  ];
+  const nextStep = STEPS[step] ?? STEPS[STEPS.length - 1]!;
+  const pct = Math.round((step / 4) * 100);
+
+  return (
+    <Link
+      href="/onboarding"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        padding: '14px 16px',
+        background: 'var(--blue-dim)',
+        border: '1px solid var(--blue-border)',
+        borderRadius: 'var(--radius)',
+        color: 'var(--text)',
+        textDecoration: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 600 }}>
+            Continue setup — {nextStep.label}
+          </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+            Step {step + 1} of 4 · {pct}% complete
+          </div>
+        </div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: 'var(--blue)' }}>Resume →</div>
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {STEPS.map((s) => (
+          <div
+            key={s.n}
+            style={{
+              flex: 1,
+              height: 4,
+              borderRadius: 2,
+              background: s.n <= step ? 'var(--blue)' : 'var(--blue-border)',
+              opacity: s.n <= step ? 1 : 0.6,
+            }}
+          />
+        ))}
+      </div>
+    </Link>
   );
 }
 

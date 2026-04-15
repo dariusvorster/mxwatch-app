@@ -229,6 +229,28 @@ export function applyPendingMigrations(dbUrl: string): void {
       CREATE INDEX IF NOT EXISTS idx_delivery_events_occurred_at ON delivery_events(occurred_at);
       CREATE INDEX IF NOT EXISTS idx_delivery_events_domain_id ON delivery_events(domain_id);
       CREATE INDEX IF NOT EXISTS idx_delivery_events_type ON delivery_events(type);
+      CREATE TABLE IF NOT EXISTS delist_requests (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+        rbl_name TEXT NOT NULL,
+        listed_value TEXT NOT NULL,
+        listing_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'not_submitted',
+        submitted_at INTEGER,
+        submission_method TEXT,
+        submission_note TEXT,
+        drafted_request TEXT,
+        last_polled_at INTEGER,
+        polling_enabled INTEGER DEFAULT 1,
+        poll_interval_hours INTEGER DEFAULT 1,
+        cleared_at INTEGER,
+        timeline TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_delist_requests_domain ON delist_requests(domain_id);
+      CREATE INDEX IF NOT EXISTS idx_delist_requests_status ON delist_requests(status);
       CREATE TABLE IF NOT EXISTS recipient_domain_stats (
         id TEXT PRIMARY KEY NOT NULL,
         domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,

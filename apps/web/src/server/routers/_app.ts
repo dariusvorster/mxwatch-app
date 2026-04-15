@@ -24,6 +24,7 @@ import { securityRouter } from './security';
 import { logsRouter } from './logs';
 import { profileRouter } from './profile';
 import { inboxSetupRouter } from './inbox-setup';
+import { delistRouter } from './delist';
 
 export const appRouter = router({
   domains: domainsRouter,
@@ -51,6 +52,7 @@ export const appRouter = router({
   logs: logsRouter,
   profile: profileRouter,
   inboxSetup: inboxSetupRouter,
+  delist: delistRouter,
 });
 
 export type AppRouter = typeof appRouter;

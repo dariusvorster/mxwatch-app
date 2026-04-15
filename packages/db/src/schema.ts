@@ -564,6 +564,34 @@ export const authFailureEvents = sqliteTable('auth_failure_events', {
   detectedAt: integer('detected_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Delist-assistant requests — one row per (domain, rbl, listedValue)
+// listing the user is working to clear. Timeline is a JSON array of
+// { ts, event, detail } entries appended via appendTimelineEvent().
+export const delistRequests = sqliteTable('delist_requests', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  domainId: text('domain_id').notNull().references(() => domains.id, { onDelete: 'cascade' }),
+  rblName: text('rbl_name').notNull(),
+  listedValue: text('listed_value').notNull(),
+  listingType: text('listing_type', { enum: ['ip', 'domain'] }).notNull(),
+  status: text('status', {
+    enum: ['not_submitted', 'submitted', 'pending', 'cleared', 'rejected', 'expired'],
+  }).notNull().default('not_submitted'),
+  submittedAt: integer('submitted_at', { mode: 'timestamp' }),
+  submissionMethod: text('submission_method', {
+    enum: ['form', 'email', 'auto_expired', 'manual_confirmed'],
+  }),
+  submissionNote: text('submission_note'),
+  draftedRequest: text('drafted_request'),
+  lastPolledAt: integer('last_polled_at', { mode: 'timestamp' }),
+  pollingEnabled: integer('polling_enabled', { mode: 'boolean' }).default(true),
+  pollIntervalHours: integer('poll_interval_hours').default(1),
+  clearedAt: integer('cleared_at', { mode: 'timestamp' }),
+  timeline: text('timeline').notNull().default('[]'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Delivery events — from cloud-provider webhooks or API polls. Captures
 // everything (delivered/bounced/deferred/rejected/complaint) with a link
 // back to the owning integration + domain so the UI can render a full

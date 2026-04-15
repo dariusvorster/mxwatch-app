@@ -140,12 +140,18 @@ Every action and every scheduled job writes to two sinks: append-only NDJSON (`$
 The deepest-visibility part of MxWatch. Once you connect a mail-server API, MxWatch pulls queue / delivery / auth / bounce data and surfaces it where it's actionable.
 
 - **Auto-detection engine** — give it a hostname or IP and it port-scans, grabs the SMTP banner, EHLOs for capabilities, and probes management APIs to identify Stalwart / Mailcow / Postfix / Mailu / Maddy / Haraka / Exchange. Returns confidence + suggested architecture (direct / NAT relay / split / managed).
-- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters: **Stalwart** + **Mailcow** (full deep stats), **Mailu** (REST inventory), **Maddy** + **Haraka** (banner-identified). **Postfix** stub (agent-based, coming). Generic SMTP fallback for anything else.
+- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters:
+  - **Self-hosted (full deep stats)**: Stalwart, Mailcow
+  - **Self-hosted (REST + basic stats)**: Mailu (enables its log endpoint when `LOG_API=True`), Mail-in-a-Box, Postal, Modoboa
+  - **Self-hosted (banner-identified)**: Maddy, Haraka
+  - **Cloud providers**: Resend, Postmark, Mailgun (US + EU), SendGrid; Amazon SES via SNS webhook (no SigV4 yet)
+  - **Postfix** stub (agent-based, planned). Generic SMTP fallback for anything else.
 - **Queue intelligence** — depth + active/deferred/failed + oldest-message-age, snapshotted every 5 min for the timeline chart.
 - **Auth-failure monitoring** — Dovecot/Stalwart auth-failed events with per-IP aggregation over rolling windows. Brute-force candidates surface at the top.
 - **Bounce intelligence** — DSN parser (RFC 3464) extracts Final-Recipient / Status / Diagnostic-Code, classifies hard / soft / policy, detects RBL mentions in the diagnostic. Correlator joins each bounce with active RBL listings + recent bounce spikes per recipient domain to assign severity and a suggested action.
 - **Per-recipient-domain delivery rates** — the Postmaster-Tools-for-everyone view. Sent / delivered / deferred / bounced / rate per provider (gmail.com, outlook.com, yahoo.com, …) over 1h / 24h / 7d / 30d windows. Anything below 95% gets flagged as a problem domain.
-- **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed), `/delivery-rates` (cross-server provider rate dashboard with 1h / 24h / 7d / 30d windows).
+- **Cloud webhook endpoints** — each provider posts delivery events to its own URL under `/api/webhooks/`: `resend`, `postmark`, `mailgun`, `sendgrid`. All four parse provider-native payloads (including HardBounce / SpamComplaint / failed / dropped / spamreport), match the sender's domain to an owned domain, and persist rows into both `delivery_events` (full feed) and `bounce_events` (bounces + complaints only). Signature verification is TODO — self-hosters should rely on path secrecy + reverse-proxy allowlists for now.
+- **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed), `/delivery-rates` (cross-server provider rate dashboard with 1h / 24h / 7d / 30d windows). Domain detail's Overview tab carries a **per-domain integrations widget** with the 24h delivered/bounced/deferred/rejected/complaint breakdown + recent-events mini-feed sourced from `delivery_events`.
 
 ### Deliverability inbox (self-hosted)
 

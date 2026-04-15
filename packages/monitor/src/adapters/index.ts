@@ -4,6 +4,9 @@ import { GenericSMTPAdapter } from './generic-smtp';
 import { StalwartAdapter } from './stalwart';
 import { MailcowAdapter } from './mailcow';
 import { PostfixAdapter } from './postfix';
+import { MailuAdapter } from './mailu';
+import { MaddyAdapter } from './maddy';
+import { HarakaAdapter } from './haraka';
 
 /**
  * Registry maps detected server type → adapter implementation. As concrete
@@ -18,9 +21,9 @@ export const ADAPTER_REGISTRY: Record<MailServerType, MailServerAdapter> = {
   mailcow: new MailcowAdapter(),
   postfix: new PostfixAdapter(),
   postfix_dovecot: new PostfixAdapter(),
-  mailu: generic,
-  maddy: generic,
-  haraka: generic,
+  mailu: new MailuAdapter(),
+  maddy: new MaddyAdapter(),
+  haraka: new HarakaAdapter(),
   exchange: generic,
   unknown: generic,
 };
@@ -35,4 +38,7 @@ export { GenericSMTPAdapter } from './generic-smtp';
 export { StalwartAdapter } from './stalwart';
 export { MailcowAdapter, parseDovecotAuthFailures } from './mailcow';
 export { PostfixAdapter } from './postfix';
+export { MailuAdapter } from './mailu';
+export { MaddyAdapter } from './maddy';
+export { HarakaAdapter } from './haraka';
 export { PostfixLogParser, parsePostfixTimestamp } from './postfix-log-parser';

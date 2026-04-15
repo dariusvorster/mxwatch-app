@@ -38,6 +38,8 @@ export function applyPendingMigrations(dbUrl: string): void {
     addColumn('users', 'ip_allowlist', `TEXT`);
     addColumn('users', 'session_expiry_days', `INTEGER DEFAULT 7`);
     addColumn('users', 'log_level', `TEXT DEFAULT 'info'`);
+    // Phase 3b — better-auth twoFactor plugin
+    addColumn('users', 'two_factor_enabled', `INTEGER DEFAULT 0`);
 
     // V3.5 topology columns — defensive: add if missing on older DBs.
     addColumn('domains', 'architecture', `TEXT DEFAULT 'direct'`);
@@ -105,6 +107,14 @@ export function applyPendingMigrations(dbUrl: string): void {
         severity TEXT DEFAULT 'info',
         acknowledged INTEGER DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS two_factor (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        secret TEXT NOT NULL,
+        backup_codes TEXT NOT NULL,
+        verified INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE INDEX IF NOT EXISTS idx_two_factor_user_id ON two_factor(user_id);
       CREATE TABLE IF NOT EXISTS activity_log (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT REFERENCES users(id) ON DELETE CASCADE,

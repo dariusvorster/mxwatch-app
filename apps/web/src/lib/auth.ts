@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { twoFactor } from 'better-auth/plugins';
 import { getDb, schema } from '@mxwatch/db';
 
 const baseURL =
@@ -41,6 +42,7 @@ export const auth = betterAuth({
       session: schema.sessions,
       account: schema.accounts,
       verification: schema.verifications,
+      twoFactor: schema.twoFactor,
     },
   }),
   secret: process.env.MXWATCH_SECRET ?? 'dev-secret-change-me-please-32chars',
@@ -50,6 +52,12 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
+  plugins: [
+    twoFactor({
+      issuer: 'MxWatch',
+      totpOptions: { period: 30, digits: 6 },
+    }),
+  ],
 });
 
 export type Auth = typeof auth;

@@ -21,6 +21,8 @@ export const users = sqliteTable('users', {
   ipAllowlist: text('ip_allowlist'),
   sessionExpiryDays: integer('session_expiry_days').default(7),
   logLevel: text('log_level').default('info'),
+  // better-auth twoFactor plugin tracks enablement on the user row.
+  twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
 });
 
 // Activity log — security-relevant user actions (login, settings change, etc.)
@@ -97,6 +99,17 @@ export const sessions = sqliteTable('sessions', {
   userAgent: text('user_agent'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// better-auth twoFactor plugin backing store. Holds the shared TOTP secret
+// + encoded backup codes per enrolled user. Populated by auth.api.enableTwoFactor
+// and cleared by disableTwoFactor; we never touch it directly.
+export const twoFactor = sqliteTable('two_factor', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  secret: text('secret').notNull(),
+  backupCodes: text('backup_codes').notNull(),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(true),
 });
 
 // better-auth accounts (email/password + OAuth)

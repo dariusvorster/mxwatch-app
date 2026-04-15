@@ -32,6 +32,9 @@ export default function LoginPage() {
     const res = await signIn.email({ email: parsed.data.email, password: parsed.data.password });
     setLoading(false);
     if (res.error) return setError(res.error.message ?? 'Sign in failed');
+    // better-auth twoFactor plugin returns twoFactorRedirect=true when the
+    // user has TOTP enabled and still owes the second factor.
+    if ((res as any)?.data?.twoFactorRedirect) return router.push('/auth/2fa');
     router.push('/');
   }
 

@@ -21,7 +21,8 @@ const SCHEMA_DDL = `
     totp_backup_codes TEXT,
     ip_allowlist TEXT,
     session_expiry_days INTEGER DEFAULT 7,
-    log_level TEXT DEFAULT 'info'
+    log_level TEXT DEFAULT 'info',
+    two_factor_enabled INTEGER DEFAULT 0
   );
   CREATE TABLE domains (
     id TEXT PRIMARY KEY NOT NULL,

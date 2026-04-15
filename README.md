@@ -90,7 +90,7 @@ Requires **Node 20+** and **pnpm 9+**.
 | **Outbound SMTP health** | TLS version, STARTTLS negotiation, response time, banner capture. |
 | **TLS certificate tracking** | Mail / web / MX hostnames, days-to-expiry alerts. |
 | **DNS diff history** | Before/after view on every SPF/DKIM/DMARC change. |
-| **IP reputation over time** | 90-day reputation chart with incident markers. |
+| **IP reputation over time** | 90-day reputation chart with incident markers; cross-domain summary at `/ip-reputation` lists every owned domain with current listings + score. |
 
 ### DMARC reporting
 
@@ -105,12 +105,13 @@ Requires **Node 20+** and **pnpm 9+**.
 - Rule types: `blacklist_listed`, `dns_record_changed`, `health_score_drop`, `dmarc_fail_spike`, `dmarc_report_received`
 - Per-domain rule toggles with editable thresholds
 - Test-alert button on every channel
+- **Watched-domain alerts** — external (non-owned) domains can opt into RBL-listing and DMARC-record-change notifications; the watched-check cron compares each new snapshot to the previous one and dispatches via your active channels on a real transition (no first-snapshot noise).
 
 ### Tools
 
 - **Record Builder** — SPF wizard with common provider templates and a live lookup counter, DMARC wizard with migration guidance
 - **Deliverability Test** — send to a unique inbox, get a mail-tester-style 0–10 score
-- **DNS Propagation Checker** — queries 19 public resolvers across 5 regions
+- **DNS Propagation Checker** (`/tools/propagation`) — queries 19 public resolvers across 5 regions, with optional substring match against an expected value (e.g. confirm a new SPF record has propagated everywhere)
 - **IP warm-up scheduler** — geometric ramp plan with daily targets
 
 ### Server intelligence (V4)

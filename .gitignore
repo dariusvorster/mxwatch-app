@@ -12,3 +12,5 @@ dist
 *.db-wal
 .DS_Store
 data/
+
+mxwatch-*.md

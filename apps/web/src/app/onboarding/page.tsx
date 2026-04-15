@@ -32,6 +32,7 @@ export default function OnboardingPage() {
 
   const status = trpc.onboarding.status.useQuery(undefined, { enabled: !!session });
   const domains = trpc.domains.list.useQuery(undefined, { enabled: !!session });
+  const resetMut = trpc.onboarding.setStep.useMutation();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [domainId, setDomainId] = useState<string | null>(null);
@@ -71,25 +72,11 @@ export default function OnboardingPage() {
   }
 
   if (status.data?.complete) {
-    return (
-      <main className="mx-auto max-w-2xl p-6 space-y-4">
-        <BrandMark size={22} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Setup already complete</CardTitle>
-            <CardDescription>You can revisit individual settings any time.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button onClick={() => router.push('/')}>Go to dashboard</Button>
-              <Button variant="outline" onClick={() => { void utils.onboarding.status.invalidate(); setStep(1); }}>
-                Redo wizard
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    );
+    return <CompleteScreen onRedo={async () => {
+      await resetMut.mutateAsync({ step: 0 });
+      await utils.onboarding.status.invalidate();
+      setStep(1);
+    }} onGo={() => router.push('/')} />;
   }
 
   return (
@@ -631,5 +618,25 @@ function Step4Alerts({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function CompleteScreen({ onRedo, onGo }: { onRedo: () => void | Promise<void>; onGo: () => void }) {
+  return (
+    <main className="mx-auto max-w-2xl p-6 space-y-4">
+      <BrandMark size={22} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Setup already complete</CardTitle>
+          <CardDescription>You can revisit individual settings any time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button onClick={onGo}>Go to dashboard</Button>
+            <Button variant="outline" onClick={() => void onRedo()}>Redo wizard</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

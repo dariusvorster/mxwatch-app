@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { IconPlus, IconDot } from '@/components/icons';
 
+// Path segments that exist only as URL groupings — there's no top-level route
+// page for them. Breadcrumbs render these as plain text so Next.js doesn't
+// prefetch a 404.
+const SYNTHETIC_PARENTS = new Set(['/domains', '/tools', '/integrations']);
+
 function buildBreadcrumb(pathname: string): Array<{ label: string; href?: string }> {
   if (pathname === '/' || pathname === '') return [{ label: 'Dashboard' }];
   const parts = pathname.split('/').filter(Boolean);
@@ -23,7 +28,8 @@ function buildBreadcrumb(pathname: string): Array<{ label: string; href?: string
       p === 'warmup' ? 'IP warm-up' :
       p === 'onboarding' ? 'Onboarding' :
       p;
-    crumbs.push({ label, href: isLast ? undefined : acc });
+    const href = isLast || SYNTHETIC_PARENTS.has(acc) ? undefined : acc;
+    crumbs.push({ label, href });
   }
   return crumbs;
 }

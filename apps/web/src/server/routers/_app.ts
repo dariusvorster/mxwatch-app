@@ -15,6 +15,11 @@ import { deliverabilityRouter } from './deliverability';
 import { stalwartRouter } from './stalwart';
 import { billingRouter } from './billing';
 import { onboardingRouter } from './onboarding';
+import { serverIntegrationsRouter } from './server-integrations';
+import { recipientDomainsRouter } from './recipient-domains';
+import { bouncesRouter } from './bounces';
+import { queueRouter } from './queue';
+import { authFailuresRouter } from './auth-failures';
 
 export const appRouter = router({
   domains: domainsRouter,
@@ -33,6 +38,11 @@ export const appRouter = router({
   stalwart: stalwartRouter,
   billing: billingRouter,
   onboarding: onboardingRouter,
+  serverIntegrations: serverIntegrationsRouter,
+  recipientDomains: recipientDomainsRouter,
+  bounces: bouncesRouter,
+  queue: queueRouter,
+  authFailures: authFailuresRouter,
 });
 
 export type AppRouter = typeof appRouter;

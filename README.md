@@ -53,7 +53,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Sign up, add your first domain in the onboarding wizard, and follow the DMARC setup prompt to point your reports at MxWatch's SMTP listener.
+Open [http://localhost:3000](http://localhost:3000). Sign up and the 4-step onboarding wizard walks you through adding a domain, confirming your mail-server architecture (auto-detected from MX + SMTP banner), optionally connecting to Stalwart/Postfix/Mailcow for deep stats, and setting alert preferences. You can re-run or resume the wizard any time from Settings.
 
 ### Local development
 
@@ -69,6 +69,15 @@ Requires **Node 20+** and **pnpm 9+**.
 ---
 
 ## Features
+
+### Onboarding
+
+4-step guided setup on first login (resumable from a dashboard banner or `Settings → Setup wizard`):
+
+1. **Add your first domain** — verification + immediate DNS check
+2. **Mail server architecture** — auto-detects MX + IP + SMTP banner (Stalwart / Postfix / Mailcow / Exchange), picks direct / NAT relay / split / managed
+3. **Server integration** (optional) — Stalwart API connect & test, or skip to external-only monitoring
+4. **Alert preferences** — pre-filled email + per-rule toggles (blacklist, DNS change, health drop)
 
 ### Monitoring
 

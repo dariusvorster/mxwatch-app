@@ -21,6 +21,23 @@ export default function IntegrationsSettingsPage() {
   const list = trpc.serverIntegrations.list.useQuery(undefined, { enabled: !!session });
   const test = trpc.serverIntegrations.test.useMutation({ onSuccess: () => list.refetch() });
   const remove = trpc.serverIntegrations.remove.useMutation({ onSuccess: () => list.refetch() });
+  const [testingAll, setTestingAll] = useState(false);
+  const [lastRun, setLastRun] = useState<{ ok: number; fail: number } | null>(null);
+
+  async function testAll() {
+    const rows = list.data ?? [];
+    if (rows.length === 0) return;
+    setTestingAll(true);
+    setLastRun(null);
+    let ok = 0, fail = 0;
+    for (const r of rows) {
+      try { await test.mutateAsync({ id: r.id }); ok += 1; }
+      catch { fail += 1; }
+    }
+    setTestingAll(false);
+    setLastRun({ ok, fail });
+    await list.refetch();
+  }
 
   if (isPending || !session) return <main>Loading…</main>;
 
@@ -37,8 +54,31 @@ export default function IntegrationsSettingsPage() {
             Every mail-server + cloud-provider adapter MxWatch is connected to.
           </div>
         </div>
-        <Link href="/servers/new"><Button>+ Add integration</Button></Link>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {rows.length > 0 && (
+            <Button variant="outline" onClick={() => void testAll()} disabled={testingAll}>
+              {testingAll ? `Testing ${rows.length}…` : 'Test all'}
+            </Button>
+          )}
+          <Link href="/servers/new"><Button>+ Add integration</Button></Link>
+        </div>
       </div>
+
+      {lastRun && (
+        <div
+          style={{
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            background: lastRun.fail > 0 ? 'var(--red-dim)' : 'var(--green-dim)',
+            color: lastRun.fail > 0 ? 'var(--red)' : 'var(--green)',
+            fontFamily: 'var(--mono)',
+            fontSize: 12,
+          }}
+        >
+          Tested {lastRun.ok + lastRun.fail}: {lastRun.ok} ok · {lastRun.fail} failed
+        </div>
+      )}
 
       <WebhookSigningPanel />
 

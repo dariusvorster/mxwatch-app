@@ -40,6 +40,8 @@ export default function IntegrationsSettingsPage() {
         <Link href="/servers/new"><Button>+ Add integration</Button></Link>
       </div>
 
+      <WebhookSigningPanel />
+
       {rows.length === 0 ? (
         <Card>
           <CardContent style={{ padding: 22, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
@@ -107,6 +109,78 @@ function IntegrationCard({ row, onTest, testing, onRemove }: {
           <Button size="sm" variant="ghost" onClick={() => void onRemove()}>Remove</Button>
         </div>
         {isCloud && <RelayInboxPanel integrationId={row.id} />}
+      </CardContent>
+    </Card>
+  );
+}
+
+function copyToClipboard(text: string) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    void navigator.clipboard.writeText(text);
+  }
+}
+
+function WebhookSigningPanel() {
+  const q = trpc.serverIntegrations.webhookConfig.useQuery();
+  const [copied, setCopied] = useState<string | null>(null);
+
+  function copy(value: string, key: string) {
+    copyToClipboard(value);
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+  }
+
+  const rows = q.data ?? [];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Webhook signing</CardTitle>
+        <CardDescription>
+          Point each provider's event webhook at MxWatch, then set the matching env var on the server so incoming
+          webhooks can be verified. Without the env var set, requests are rejected.
+        </CardDescription>
+      </CardHeader>
+      <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {rows.map((p) => (
+          <div
+            key={p.provider}
+            style={{
+              padding: 12,
+              background: 'var(--surf2)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{p.label}</div>
+              <StatusBadge tone={p.configured ? 'healthy' : 'warning'}>
+                {p.configured ? 'env set' : 'env missing'}
+              </StatusBadge>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, color: 'var(--text3)', minWidth: 70 }}>Webhook URL</span>
+              <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)', userSelect: 'all', flex: 1, minWidth: 260 }}>
+                {p.path}
+              </code>
+              <Button size="sm" variant="outline" onClick={() => copy(p.path, `url-${p.provider}`)}>
+                {copied === `url-${p.provider}` ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, color: 'var(--text3)', minWidth: 70 }}>Env var</span>
+              <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)', userSelect: 'all', flex: 1, minWidth: 260 }}>
+                {p.envVar}
+              </code>
+              <Button size="sm" variant="outline" onClick={() => copy(p.envVar, `env-${p.provider}`)}>
+                {copied === `env-${p.provider}` ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>{p.envDescription}</div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

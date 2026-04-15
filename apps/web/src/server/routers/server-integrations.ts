@@ -30,7 +30,52 @@ async function assertOwned(ctx: any, id: string) {
   return row;
 }
 
+type WebhookProvider = {
+  provider: 'resend' | 'postmark' | 'mailgun' | 'sendgrid';
+  label: string;
+  path: string;
+  envVar: string;
+  envDescription: string;
+  configured: boolean;
+};
+
+function webhookProviderConfig(): WebhookProvider[] {
+  const base = getAppUrl();
+  return [
+    {
+      provider: 'resend', label: 'Resend',
+      path: `${base}/api/webhooks/resend`,
+      envVar: 'MXWATCH_WEBHOOK_RESEND_SECRET',
+      envDescription: 'Svix signing secret (starts with whsec_).',
+      configured: !!process.env.MXWATCH_WEBHOOK_RESEND_SECRET,
+    },
+    {
+      provider: 'postmark', label: 'Postmark',
+      path: `${base}/api/webhooks/postmark`,
+      envVar: 'MXWATCH_WEBHOOK_POSTMARK_BASIC_AUTH',
+      envDescription: 'HTTP Basic auth string, format user:password.',
+      configured: !!process.env.MXWATCH_WEBHOOK_POSTMARK_BASIC_AUTH,
+    },
+    {
+      provider: 'mailgun', label: 'Mailgun',
+      path: `${base}/api/webhooks/mailgun`,
+      envVar: 'MXWATCH_WEBHOOK_MAILGUN_SIGNING_KEY',
+      envDescription: 'HTTP webhook signing key from Mailgun account settings.',
+      configured: !!process.env.MXWATCH_WEBHOOK_MAILGUN_SIGNING_KEY,
+    },
+    {
+      provider: 'sendgrid', label: 'SendGrid',
+      path: `${base}/api/webhooks/sendgrid`,
+      envVar: 'MXWATCH_WEBHOOK_SENDGRID_PUBKEY',
+      envDescription: 'Ed25519 public verification key from SendGrid event webhook settings.',
+      configured: !!process.env.MXWATCH_WEBHOOK_SENDGRID_PUBKEY,
+    },
+  ];
+}
+
 export const serverIntegrationsRouter = router({
+  webhookConfig: protectedProcedure.query(() => webhookProviderConfig()),
+
   list: protectedProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db
       .select({

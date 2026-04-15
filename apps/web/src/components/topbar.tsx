@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { IconPlus, IconDot } from '@/components/icons';
+import { DomainSearch } from '@/components/domain-search';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 
@@ -76,6 +77,7 @@ export function Topbar() {
 
       {/* Right cluster */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <DomainSearch />
         <ErrorBadge />
         <div
           style={{

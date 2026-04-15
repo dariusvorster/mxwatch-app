@@ -111,6 +111,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
 
         <PillTabsContent value="overview">
           <div className="space-y-4">
+            <DomainActiveAlertsCard domainId={id} />
             <DomainOverview domainId={id} />
             <DomainIntegrationsWidget domainId={id} />
             <DkimSelectorsCard domainId={id} live={live.data} />
@@ -341,7 +342,7 @@ function StatusRow({ label, ok, detail }: { label: string; ok: boolean; detail: 
   );
 }
 
-import { humanizeAlertType } from '@/lib/alert-display';
+import { humanizeAlertType, relativeTime } from '@/lib/alert-display';
 
 const RULE_DESCRIPTIONS: Record<string, string> = {
   blacklist_listed: 'Fires the moment any monitored RBL lists a checked IP. Auto-resolves when clean.',
@@ -747,6 +748,62 @@ function UnexpectedSendersCard({ domainId }: { domainId: string }) {
             </div>
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DomainActiveAlertsCard({ domainId }: { domainId: string }) {
+  const active = trpc.alerts.history.useQuery({ domainId, onlyActive: true });
+  const utils = trpc.useUtils();
+  const resolve = trpc.alerts.resolve.useMutation({
+    onSuccess: () => utils.alerts.history.invalidate(),
+  });
+
+  const rows = active.data ?? [];
+  if (active.isLoading || rows.length === 0) return null;
+
+  return (
+    <Card style={{ borderColor: 'var(--red-border)' }}>
+      <CardHeader>
+        <CardTitle style={{ color: 'var(--red)' }}>
+          Active alerts ({rows.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map((a) => (
+          <div
+            key={a.id}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 10,
+              padding: '10px 12px',
+              background: 'var(--red-dim)',
+              border: '1px solid var(--red-border)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500, color: 'var(--red)' }}>
+                {a.type.replace(/_/g, ' ')}
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginLeft: 8, fontWeight: 400 }}>
+                  fired {relativeTime(a.firedAt)}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text)', marginTop: 2 }}>{a.message}</div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={resolve.isPending}
+              onClick={() => resolve.mutate({ id: a.id })}
+            >
+              {resolve.isPending && resolve.variables?.id === a.id ? 'Resolving…' : 'Resolve'}
+            </Button>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

@@ -11,6 +11,9 @@ export const users = sqliteTable('users', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   plan: text('plan', { enum: ['self_hosted', 'solo', 'teams'] }).default('self_hosted'),
+  // Onboarding wizard progress. 0 = not started, 1 = domain added, 2 = architecture
+  // set, 3 = server integration done/skipped, 4 = alerts set (wizard complete).
+  onboardingStep: integer('onboarding_step').notNull().default(0),
 });
 
 // better-auth sessions

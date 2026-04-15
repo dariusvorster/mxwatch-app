@@ -14,6 +14,7 @@ import { watchedRouter } from './watched';
 import { deliverabilityRouter } from './deliverability';
 import { stalwartRouter } from './stalwart';
 import { billingRouter } from './billing';
+import { onboardingRouter } from './onboarding';
 
 export const appRouter = router({
   domains: domainsRouter,
@@ -31,6 +32,7 @@ export const appRouter = router({
   deliverability: deliverabilityRouter,
   stalwart: stalwartRouter,
   billing: billingRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

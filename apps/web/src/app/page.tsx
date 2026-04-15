@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const { data: session, isPending } = useSession();
   const domains = trpc.domains.list.useQuery(undefined, { enabled: !!session });
   const activeAlerts = trpc.alerts.history.useQuery({ onlyActive: true }, { enabled: !!session });
+  const onboarding = trpc.onboarding.status.useQuery(undefined, { enabled: !!session });
 
   // Per-domain latest DNS snapshot + blacklist check — fan out with useQueries.
   const snapQueries = trpc.useQueries((t) =>
@@ -35,6 +36,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
   }, [isPending, session, router]);
+
+  useEffect(() => {
+    if (onboarding.data && onboarding.data.step === 0) router.replace('/onboarding');
+  }, [onboarding.data, router]);
 
   if (isPending || !session) return <main>Loading…</main>;
 
@@ -65,6 +70,34 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={`${domainList.length} domain${domainList.length === 1 ? '' : 's'} monitored`}
       />
+
+      {onboarding.data && onboarding.data.step > 0 && onboarding.data.step < 4 && (
+        <Link
+          href="/onboarding"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '12px 16px',
+            background: 'var(--blue-dim)',
+            border: '1px solid var(--blue-border)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--text)',
+            textDecoration: 'none',
+          }}
+        >
+          <div>
+            <div style={{ fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500 }}>
+              Continue setup — step {onboarding.data.step + 1} of 4
+            </div>
+            <div style={{ fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              Finish configuring architecture, server integration, and alerts.
+            </div>
+          </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--blue)' }}>Resume →</div>
+        </Link>
+      )}
 
       {/* Summary row */}
       <div

@@ -34,6 +34,12 @@ export default function BlacklistsPage() {
     <div className="space-y-5" style={{ maxWidth: 1100 }}>
       <PageHeader title="Blacklists" subtitle="Current RBL status for every sending IP you monitor." />
 
+      <div style={{ fontSize: 12 }}>
+        <Link href="/blacklists/history" style={{ color: 'var(--blue)' }}>
+          View delist history →
+        </Link>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
         <SummaryCard label="Domains" value={rows.length} valueTone="blue" subtext="with a sending IP" />
         <SummaryCard label="Clean" value={clean} valueTone="green" subtext="passed latest check" />

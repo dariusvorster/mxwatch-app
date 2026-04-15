@@ -126,6 +126,65 @@ export const delistRouter = router({
       return updated!;
     }),
 
+  /** AI-drafted delist request (cloud + paid plan only). Gathers recent
+   *  DNS-snapshot signal, calls Anthropic, persists the draft on the row. */
+  generateDraft: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (process.env.MXWATCH_CLOUD !== '1') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'AI-drafted requests are a MxWatch Cloud feature.' });
+      }
+      const plan = (ctx.user as any).plan ?? 'self_hosted';
+      if (!['solo', 'teams'].includes(plan)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Upgrade to a paid plan to use AI-drafted delist requests.' });
+      }
+
+      const row = await assertRequest(ctx, input.requestId);
+      const [domain] = await ctx.db
+        .select()
+        .from(schema.domains)
+        .where(eq(schema.domains.id, row.domainId))
+        .limit(1);
+      if (!domain) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const [snap] = await ctx.db
+        .select()
+        .from(schema.dnsSnapshots)
+        .where(eq(schema.dnsSnapshots.domainId, domain.id))
+        .orderBy(desc(schema.dnsSnapshots.checkedAt))
+        .limit(1);
+
+      const { draftDelistRequest } = await import('@mxwatch/monitor');
+      const draft = await draftDelistRequest({
+        rblName: row.rblName,
+        domain: domain.domain,
+        listedValue: row.listedValue,
+        serverInfo: {
+          mailHostname: null,
+          sendingIp: domain.sendingIp ?? row.listedValue,
+          ptrRecord: null,
+          spfStatus: snap?.spfValid == null ? null : snap.spfValid ? 'pass' : 'fail',
+          dkimValid: snap?.dkimValid ?? null,
+          dmarcPolicy: snap?.dmarcPolicy ?? null,
+          serverType: domain.outboundProvider ?? null,
+        },
+      });
+
+      await ctx.db
+        .update(schema.delistRequests)
+        .set({
+          draftedRequest: draft,
+          timeline: appendTimelineEvent(row.timeline, {
+            event: 'ai_drafted', detail: 'Generated delist request via Anthropic',
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.delistRequests.id, row.id));
+
+      void logger.info('rbl', 'AI draft generated', { requestId: row.id, rblName: row.rblName });
+      return { draft };
+    }),
+
   getRBLInfo: publicProcedure
     .input(z.object({ rblName: z.string() }))
     .query(({ input }) => RBL_KNOWLEDGE[input.rblName] ?? null),

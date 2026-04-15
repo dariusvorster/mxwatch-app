@@ -1,11 +1,11 @@
 import { getDb, schema, nanoid } from '@mxwatch/db';
 import { and, desc, eq, gte, isNull } from 'drizzle-orm';
-import type { Alert, AlertType, Severity, ChannelConfig } from '@mxwatch/types';
+import type { Alert, AlertType, AlertRuleType, Severity, ChannelConfig } from '@mxwatch/types';
 import { sendAlert, decryptJSON, type AlertChannelRecord } from '@mxwatch/alerts';
 
 export type Trigger = 'dns' | 'blacklist' | 'dmarc';
 
-const DEFAULT_RULE_TYPES: AlertType[] = [
+const DEFAULT_RULE_TYPES: AlertRuleType[] = [
   'blacklist_listed',
   'dns_record_changed',
   'health_score_drop',

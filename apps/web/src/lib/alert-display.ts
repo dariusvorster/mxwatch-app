@@ -4,6 +4,8 @@ export function severityFor(type: string): Severity {
   switch (type as AlertType) {
     case 'blacklist_listed':
       return 'critical';
+    case 'rbl_delisted':
+      return 'low';
     case 'health_score_drop':
       return 'high';
     case 'dns_record_changed':
@@ -19,6 +21,7 @@ export function severityFor(type: string): Severity {
 
 const TYPE_LABELS: Record<string, string> = {
   blacklist_listed: 'Blacklist listed',
+  rbl_delisted: 'Blacklist cleared',
   dns_record_changed: 'DNS record changed',
   dmarc_fail_spike: 'DMARC fail spike',
   health_score_drop: 'Health score drop',

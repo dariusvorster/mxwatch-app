@@ -1,11 +1,16 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
 
-export type AlertType =
+/** Rule-driven alerts — configurable per domain via the alert_rules table. */
+export type AlertRuleType =
   | 'blacklist_listed'
   | 'dns_record_changed'
   | 'dmarc_fail_spike'
   | 'health_score_drop'
   | 'dmarc_report_received';
+
+/** Full alert type union — rules + ad-hoc dispatch events (rbl_delisted
+ *  fires from the delist poller when a listing clears). */
+export type AlertType = AlertRuleType | 'rbl_delisted';
 
 export type AlertChannelType = 'email' | 'slack' | 'webhook' | 'ntfy';
 

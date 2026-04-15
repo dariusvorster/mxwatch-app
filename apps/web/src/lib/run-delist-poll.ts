@@ -1,9 +1,34 @@
-import { getDb, schema, logger } from '@mxwatch/db';
+import { getDb, schema, logger, nanoid } from '@mxwatch/db';
 import { and, eq } from 'drizzle-orm';
 import {
   RBL_KNOWLEDGE, appendTimelineEvent, getRBLHost,
   checkSingleRBL, hasAutoExpired,
 } from '@mxwatch/monitor';
+import { sendAlert, decryptJSON, type AlertChannelRecord } from '@mxwatch/alerts';
+import type { Alert, ChannelConfig } from '@mxwatch/types';
+
+async function dispatchClearedAlert(userId: string, domainId: string, domainName: string, rblName: string, listedValue: string) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(schema.alertChannels)
+    .where(and(eq(schema.alertChannels.userId, userId), eq(schema.alertChannels.isActive, true)));
+  if (rows.length === 0) return;
+  const alert: Alert = {
+    id: nanoid(),
+    domainId,
+    domainName,
+    type: 'rbl_delisted',
+    severity: 'low',
+    message: `Your ${listedValue} has been removed from ${rblName}. Delivery to receivers using this RBL should recover shortly.`,
+    firedAt: new Date(),
+  };
+  for (const r of rows) {
+    const ch: AlertChannelRecord = { id: r.id, type: r.type, config: decryptJSON<ChannelConfig>(r.config) };
+    try { await sendAlert(ch, alert); }
+    catch (e) { console.error('[delist-poll] dispatch failed', r.id, e); }
+  }
+}
 
 /**
  * Polls a single delist request. Exported so the UI can trigger an
@@ -52,6 +77,13 @@ export async function pollDelistRequest(requestId: string): Promise<void> {
     void logger.info('rbl', `Delist confirmed: ${r.listedValue} cleared from ${rbl.name}`, {
       requestId: r.id, domainId: r.domainId,
     });
+    // Dispatch an rbl_delisted alert through the user's active channels.
+    const [domainRow] = await db
+      .select({ domain: schema.domains.domain })
+      .from(schema.domains)
+      .where(eq(schema.domains.id, r.domainId))
+      .limit(1);
+    await dispatchClearedAlert(r.userId, r.domainId, domainRow?.domain ?? r.domainId, rbl.name, r.listedValue);
     return;
   }
 

@@ -28,6 +28,8 @@ export function DelistWizard({
   const getOrCreate = trpc.delist.getOrCreate.useMutation();
   const markSubmitted = trpc.delist.markSubmitted.useMutation();
   const checkNow = trpc.delist.checkNow.useMutation();
+  const generateDraft = trpc.delist.generateDraft.useMutation();
+  const isCloud = process.env.NEXT_PUBLIC_MXWATCH_CLOUD === '1';
 
   const [open, setOpen] = useState(false);
   const [request, setRequest] = useState<any>(null);
@@ -151,6 +153,49 @@ export function DelistWizard({
             <ul style={list}>
               {rbl.preventionTips.map((t: string) => <li key={t}>{t}</li>)}
             </ul>
+          </Section>
+
+          <Section title="AI-drafted delist request">
+            {request?.draftedRequest ? (
+              <textarea
+                readOnly
+                value={request.draftedRequest}
+                rows={14}
+                style={{
+                  width: '100%', fontFamily: 'var(--mono)', fontSize: 11,
+                  padding: 10, background: 'var(--bg)', color: 'var(--text)',
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                }}
+              />
+            ) : isCloud ? (
+              <>
+                <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
+                  Generates a professional email body tailored to this RBL and your server's SPF / DKIM / DMARC state.
+                </p>
+                <Button size="sm" variant="outline"
+                  onClick={async () => {
+                    if (!request) return;
+                    try {
+                      const res = await generateDraft.mutateAsync({ requestId: request.id });
+                      setRequest({ ...request, draftedRequest: res.draft });
+                    } catch { /* surfaced via error */ }
+                  }}
+                  disabled={!request || generateDraft.isPending}>
+                  {generateDraft.isPending ? 'Drafting…' : 'Generate delist request'}
+                </Button>
+                {generateDraft.error && (
+                  <p style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>{generateDraft.error.message}</p>
+                )}
+              </>
+            ) : (
+              <div style={{
+                padding: 10, background: 'var(--blue-dim)', border: '1px solid var(--blue-border)',
+                borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--text2)',
+              }}>
+                AI-drafted delist requests are a <b>MxWatch Cloud</b> feature. Upgrade to generate a
+                provider-tailored request body in seconds.
+              </div>
+            )}
           </Section>
         </>
       )}

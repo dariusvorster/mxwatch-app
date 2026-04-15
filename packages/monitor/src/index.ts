@@ -17,3 +17,4 @@ export * from './bounce-parser';
 export * from './bounce-correlator';
 export * from './delist/rbl-knowledge';
 export * from './delist/poller';
+export * from './delist/draft-request';

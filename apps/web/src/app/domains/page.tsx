@@ -18,6 +18,27 @@ export default function DomainsIndexPage() {
   const [q, setQ] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('score');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const utils = trpc.useUtils();
+  const runDns = trpc.checks.runDns.useMutation();
+  const [runState, setRunState] = useState<{ done: number; total: number; failed: number } | null>(null);
+
+  async function runAllChecks() {
+    const list = domains.data ?? [];
+    if (list.length === 0) return;
+    setRunState({ done: 0, total: list.length, failed: 0 });
+    let done = 0, failed = 0;
+    for (const d of list) {
+      try { await runDns.mutateAsync({ domainId: d.id }); }
+      catch { failed += 1; }
+      done += 1;
+      setRunState({ done, total: list.length, failed });
+    }
+    await Promise.all([
+      utils.checks.latestDns.invalidate(),
+      utils.checks.snapshotHistory.invalidate(),
+    ]);
+    setTimeout(() => setRunState(null), 5000);
+  }
 
   const snapQueries = trpc.useQueries((t) =>
     (domains.data ?? []).map((d) => t.checks.latestDns({ domainId: d.id }, { enabled: !!session })),
@@ -88,6 +109,23 @@ export default function DomainsIndexPage() {
             color: 'var(--text)',
           }}
         />
+        {(domains.data?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={() => void runAllChecks()}
+            disabled={runState != null && runState.done < runState.total}
+            style={{
+              fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600,
+              padding: '8px 14px', borderRadius: 8,
+              background: 'transparent', color: 'var(--text2)',
+              border: '1px solid var(--border2)', cursor: 'pointer',
+            }}
+          >
+            {runState && runState.done < runState.total
+              ? `Running ${runState.done}/${runState.total}…`
+              : 'Run all checks'}
+          </button>
+        )}
         <Link
           href="/onboarding"
           style={{
@@ -100,6 +138,21 @@ export default function DomainsIndexPage() {
           + Add domain
         </Link>
       </div>
+
+      {runState && runState.done === runState.total && (
+        <div
+          style={{
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            background: runState.failed > 0 ? 'var(--amber-dim)' : 'var(--green-dim)',
+            color: runState.failed > 0 ? 'var(--amber)' : 'var(--green)',
+            fontFamily: 'var(--mono)', fontSize: 12,
+          }}
+        >
+          Ran {runState.total} {runState.total === 1 ? 'domain' : 'domains'} · {runState.failed} failed
+        </div>
+      )}
 
       <div
         style={{

@@ -1,6 +1,15 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
+  // Run idempotent DB migrations before anything else touches the DB.
+  // Adds V3.6+ columns (users.onboarding_step) and V4 tables.
+  const { applyPendingMigrations } = await import('@mxwatch/db');
+  try {
+    applyPendingMigrations(process.env.DATABASE_URL ?? './data/mxwatch.db');
+  } catch (e) {
+    console.error('[instrumentation] migration failed', e);
+  }
+
   const { startSmtpListener } = await import('@mxwatch/monitor/smtp-listener');
   const { scheduleJob } = await import('@mxwatch/monitor/scheduler');
   const { routeInboundMail } = await import('./lib/inbound-mail-router');

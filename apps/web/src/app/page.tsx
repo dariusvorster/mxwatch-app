@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const activeAlerts = trpc.alerts.history.useQuery({ onlyActive: true }, { enabled: !!session });
   const onboarding = trpc.onboarding.status.useQuery(undefined, { enabled: !!session });
   const channels = trpc.alerts.listChannels.useQuery(undefined, { enabled: !!session });
+  const dmarcSummary = trpc.reports.globalSummary.useQuery(undefined, { enabled: !!session });
 
   // Per-domain latest DNS snapshot + blacklist check — fan out with useQueries.
   const snapQueries = trpc.useQueries((t) =>
@@ -65,9 +66,7 @@ export default function DashboardPage() {
     if (rows.length > 0 && rows[0]?.isListed) listedCount += 1;
   }
 
-  // DMARC reports total (placeholder: derive from domain count; real aggregate
-  // would need a new endpoint which is out of scope for the redesign phase).
-  const dmarcDomains = domainList.length;
+  const dmarc = dmarcSummary.data;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -114,9 +113,23 @@ export default function DashboardPage() {
         />
         <SummaryCard
           label="DMARC reports"
-          value={dmarcDomains}
+          value={dmarc?.reportCount ?? 0}
           valueTone="blue"
-          subtext="domains ingesting"
+          subtext={
+            dmarc && dmarc.totalMessages > 0 ? (
+              <span>
+                <span style={{ color: 'var(--text2)' }}>
+                  {dmarc.totalMessages.toLocaleString()} msgs
+                </span>
+                {' · '}
+                <span style={{ color: (dmarc.passRate ?? 0) >= 0.95 ? 'var(--green)' : 'var(--amber)' }}>
+                  {((dmarc.passRate ?? 0) * 100).toFixed(1)}% pass
+                </span>
+              </span>
+            ) : (
+              `last ${dmarc?.days ?? 30} days`
+            )
+          }
         />
       </div>
 

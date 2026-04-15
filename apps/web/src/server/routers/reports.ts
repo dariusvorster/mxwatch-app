@@ -15,6 +15,39 @@ async function assertOwned(ctx: any, domainId: string) {
 }
 
 export const reportsRouter = router({
+  /** Cross-domain DMARC roll-up for the dashboard summary card. */
+  globalSummary: protectedProcedure
+    .input(z.object({ days: z.number().min(1).max(90).default(30) }).optional())
+    .query(async ({ ctx, input }) => {
+      const days = input?.days ?? 30;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const rows = await ctx.db
+        .select({
+          passCount: schema.dmarcReports.passCount,
+          failCount: schema.dmarcReports.failCount,
+          domainId: schema.dmarcReports.domainId,
+        })
+        .from(schema.dmarcReports)
+        .innerJoin(schema.domains, eq(schema.dmarcReports.domainId, schema.domains.id))
+        .where(and(
+          eq(schema.domains.userId, ctx.user.id),
+          gte(schema.dmarcReports.receivedAt, since),
+        ));
+      const totalPass = rows.reduce((s, r) => s + (r.passCount ?? 0), 0);
+      const totalFail = rows.reduce((s, r) => s + (r.failCount ?? 0), 0);
+      const totalMessages = totalPass + totalFail;
+      const domainsWithReports = new Set(rows.map((r) => r.domainId)).size;
+      return {
+        reportCount: rows.length,
+        totalMessages,
+        totalPass,
+        totalFail,
+        passRate: totalMessages > 0 ? totalPass / totalMessages : null,
+        domainsWithReports,
+        days,
+      };
+    }),
+
   list: protectedProcedure
     .input(z.object({ domainId: z.string(), limit: z.number().min(1).max(200).default(50) }))
     .query(async ({ ctx, input }) => {

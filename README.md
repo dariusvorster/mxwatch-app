@@ -120,6 +120,18 @@ Every action and every scheduled job writes to two sinks: append-only NDJSON (`$
 - **NDJSON export** — download the last 7 or 30 days as `mxwatch-logs-YYYY-MM-DD.ndjson` from `/logs` or `/settings/logs`.
 - **Sensitive-key redaction** — the logger sanitizes `password`, `secret`, `token`, `key`, `apikey`, `totpsecret`, `passwordhash`, `authorization` substrings to `[REDACTED]` before writing to either sink.
 
+### RBL delist assistant
+
+Every time a domain's sending IP (or domain) shows up on a blacklist, the Blacklists tab on `/domains/[id]` renders a per-listing **delist wizard** that:
+
+- Explains why the RBL lists this IP / domain (`listingReasons`) and the severity impact on major mailbox providers.
+- Points to the right action for the RBL's method — `self_service_form` (open the delist form), `email_request` (open mail client to the provider's delist address), `auto_expires` (start auto-expire tracking for SpamCop / Mailspike), `reputation_based` / `portal_registration` / `manual_review`.
+- Persists a `delist_requests` row with status (`not_submitted / submitted / pending / cleared / rejected / expired`) + a JSON timeline of every transition.
+- Polls the RBL hourly via the new `delist-poll` cron and flips to `cleared` the moment the listing drops off; dispatches an `rbl_delisted` alert through the user's active channels.
+- On cloud + paid plans, a **Generate delist request** button drafts a professional <200-word delist body via Anthropic's Messages API using the domain's latest SPF / DKIM / DMARC state (`ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` env vars). Self-hosted users see an upsell note instead.
+
+Knowledge base lives at `packages/monitor/src/delist/rbl-knowledge.ts` — 11 RBLs today (Spamhaus ZEN/DBL, Barracuda, SORBS, SpamCop, Spamrats, Mailspike, Invaluement, SEM-BACKSCATTER, URIBL, Microsoft SNDS). Extend that file plus the display-name → key map in the same module to add a new list.
+
 ### Alerts
 
 - Channels: **email**, **Slack** (incoming webhook), **ntfy** (self-hosted ntfy works too), **generic webhook** with optional HMAC secret
@@ -240,6 +252,7 @@ mxwatch-app/
 | `recipient-domain-aggregate` | hourly | V4 — pulls 24h delivery events, aggregates per recipient domain into rollups |
 | `postmaster-sync` | daily 04:00 UTC | Gmail Postmaster Tools sync |
 | `log-rotation` | daily 02:00 UTC | Rotates mxwatch.log → mxwatch.YYYY-MM-DD.log; prunes rotated files + app_logs rows past LOG_RETENTION_DAYS |
+| `delist-poll` | hourly | Re-checks every pending delist_requests row; flips to cleared and fires rbl_delisted alerts when the listing drops |
 
 ---
 

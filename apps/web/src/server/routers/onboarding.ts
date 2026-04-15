@@ -4,7 +4,7 @@ import { router, protectedProcedure } from '../trpc';
 import { schema } from '@mxwatch/db';
 import { and, eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
-import { checkSmtp } from '@mxwatch/monitor';
+import { detectMailServer } from '@mxwatch/monitor';
 
 async function resolveFirstIp(host: string): Promise<string | null> {
   try {
@@ -80,34 +80,23 @@ export const onboardingRouter = router({
       const primaryMx = mxRecords[0] ?? null;
       const primaryIp = primaryMx ? await resolveFirstIp(primaryMx) : null;
 
-      let banner: string | null = null;
-      let tlsVersion: string | null = null;
-      let responseTimeMs: number | null = null;
-      if (primaryMx) {
-        const smtp = await checkSmtp(primaryMx, 25, 4000);
-        banner = smtp.banner ?? null;
-        tlsVersion = smtp.tlsVersion ?? null;
-        responseTimeMs = smtp.responseTimeMs ?? null;
-      }
-
-      let detected: 'stalwart' | 'postfix' | 'mailcow' | 'exchange' | 'unknown' = 'unknown';
-      if (banner) {
-        const b = banner.toLowerCase();
-        if (b.includes('stalwart')) detected = 'stalwart';
-        else if (b.includes('mailcow')) detected = 'mailcow';
-        else if (b.includes('postfix')) detected = 'postfix';
-        else if (b.includes('microsoft') || b.includes('exchange')) detected = 'exchange';
-      }
+      // Full fingerprint: port scan + SMTP banner/EHLO + API probe against
+      // the primary MX host. Falls back gracefully when there's no MX.
+      const fingerprint = primaryMx
+        ? await detectMailServer(primaryMx)
+        : null;
 
       return {
         domain: row.domain,
         mxRecords,
         primaryMx,
         primaryIp,
-        banner,
-        tlsVersion,
-        responseTimeMs,
-        detectedServer: detected,
+        banner: fingerprint?.smtpBanner ?? null,
+        tlsVersion: fingerprint?.tlsVersion ?? null,
+        responseTimeMs: null,
+        detectedServer: (fingerprint?.detectedType ?? 'unknown') as
+          | 'stalwart' | 'postfix' | 'postfix_dovecot' | 'mailcow' | 'mailu' | 'maddy' | 'haraka' | 'exchange' | 'unknown',
+        fingerprint,
       };
     }),
 });

@@ -186,7 +186,7 @@ export function Sidebar() {
       label: 'Monitoring',
       items: [
         {
-          label: 'Domains', href: '/', icon: IconGlobe,
+          label: 'Domains', href: '/domains', icon: IconGlobe,
           badge: domainCount > 0 ? { text: String(domainCount), variant: 'neutral' } : undefined,
           matches: /^\/domains(\/|$)/,
         },

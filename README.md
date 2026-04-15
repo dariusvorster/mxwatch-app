@@ -277,6 +277,10 @@ What's still coming:
 
 ## Troubleshooting
 
+### Don't use `pnpm db:push` against a running database
+
+`drizzle-kit push` prompts to truncate tables when it can't reconcile a non-null column addition (hit this on `users.onboarding_step` during V3.6). Accepting truncation deletes your users. MxWatch auto-migrates at boot via `packages/db/src/migrate.ts` (idempotent `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE … ADD COLUMN` only when missing), so self-hosters never need to run `db:push`. Use `pnpm db:studio` if you want to inspect the DB, or invoke `applyPendingMigrations()` directly; leave `db:push` for dev-only dry schema resets.
+
 ### Database migrations after upgrade
 
 V3.6+ added a `users.onboarding_step` column and V4 added five new tables (`server_integrations`, `queue_snapshots`, `auth_failure_events`, `bounce_events`, `recipient_domain_stats`). On boot the app runs `applyPendingMigrations` from `packages/db/src/migrate.ts` — it's idempotent (`PRAGMA table_info` + `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` only when the column is missing) and also defensively backfills V3.5 columns on the `domains` table. No manual `db:push` required after pulling.

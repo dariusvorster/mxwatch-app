@@ -1,4 +1,4 @@
-import { getDb, schema, nanoid } from '@mxwatch/db';
+import { getDb, schema, nanoid, logger } from '@mxwatch/db';
 import { eq, gte } from 'drizzle-orm';
 import { decryptJSON } from '@mxwatch/alerts';
 import {
@@ -38,8 +38,11 @@ function handleAdapterError(row: IntegrationRow, where: string, err: unknown) {
  * without a separate call.
  */
 export async function pullAllServerStats(): Promise<void> {
+  const run = await logger.job('server-stats-pull');
+  let succeeded = 0, failed = 0;
   const db = getDb();
-  for (const row of await listActiveIntegrations()) {
+  const rows = await listActiveIntegrations();
+  for (const row of rows) {
     const adapter = getAdapter(row.serverType as MailServerType);
     try {
       const stats = await adapter.getStats(buildConfig(row));
@@ -47,7 +50,6 @@ export async function pullAllServerStats(): Promise<void> {
         .update(schema.serverIntegrations)
         .set({ status: 'ok', lastError: null, lastPulledAt: new Date() })
         .where(eq(schema.serverIntegrations.id, row.id));
-      // Opportunistically record a queue snapshot if stats carry queue counts.
       if (stats.queueDepth != null) {
         await db.insert(schema.queueSnapshots).values({
           id: nanoid(),
@@ -60,14 +62,17 @@ export async function pullAllServerStats(): Promise<void> {
           recordedAt: new Date(),
         });
       }
+      succeeded += 1;
     } catch (e) {
       handleAdapterError(row, 'getStats', e);
+      if (!(e instanceof AdapterUnsupportedError)) failed += 1;
       await db
         .update(schema.serverIntegrations)
         .set({ status: 'error', lastError: (e as any)?.message ?? String(e), lastPulledAt: new Date() })
         .where(eq(schema.serverIntegrations.id, row.id));
     }
   }
+  await run.success({ itemsProcessed: rows.length, itemsSucceeded: succeeded, itemsFailed: failed });
 }
 
 /**
@@ -76,8 +81,11 @@ export async function pullAllServerStats(): Promise<void> {
  * doesn't need to happen every minute.
  */
 export async function pullAllQueueSnapshots(): Promise<void> {
+  const run = await logger.job('queue-snapshot');
+  let succeeded = 0, failed = 0;
   const db = getDb();
-  for (const row of await listActiveIntegrations()) {
+  const rows = await listActiveIntegrations();
+  for (const row of rows) {
     const adapter = getAdapter(row.serverType as MailServerType);
     try {
       const q = await adapter.getQueue(buildConfig(row));
@@ -91,10 +99,13 @@ export async function pullAllQueueSnapshots(): Promise<void> {
         oldestMessageAge: q.oldestMessageAge,
         recordedAt: new Date(),
       });
+      succeeded += 1;
     } catch (e) {
       handleAdapterError(row, 'getQueue', e);
+      if (!(e instanceof AdapterUnsupportedError)) failed += 1;
     }
   }
+  await run.success({ itemsProcessed: rows.length, itemsSucceeded: succeeded, itemsFailed: failed });
 }
 
 /**
@@ -102,9 +113,12 @@ export async function pullAllQueueSnapshots(): Promise<void> {
  * so we don't insert the same event twice across overlapping time windows.
  */
 export async function pullAllAuthFailures(): Promise<void> {
+  const run = await logger.job('auth-failure-pull');
+  let succeeded = 0, failed = 0;
   const db = getDb();
   const since = new Date(Date.now() - 10 * 60 * 1000);
-  for (const row of await listActiveIntegrations()) {
+  const integrations = await listActiveIntegrations();
+  for (const row of integrations) {
     const adapter = getAdapter(row.serverType as MailServerType);
     try {
       const events = await adapter.getAuthFailures(buildConfig(row), since);
@@ -126,10 +140,13 @@ export async function pullAllAuthFailures(): Promise<void> {
           detectedAt: e.timestamp,
         }));
       if (toInsert.length > 0) await db.insert(schema.authFailureEvents).values(toInsert);
+      succeeded += 1;
     } catch (e) {
       handleAdapterError(row, 'getAuthFailures', e);
+      if (!(e instanceof AdapterUnsupportedError)) failed += 1;
     }
   }
+  await run.success({ itemsProcessed: integrations.length, itemsSucceeded: succeeded, itemsFailed: failed });
 }
 
 /**
@@ -139,10 +156,13 @@ export async function pullAllAuthFailures(): Promise<void> {
  * reported stats.
  */
 export async function aggregateAllRecipientDomainStats(): Promise<void> {
+  const run = await logger.job('recipient-domain-aggregate');
+  let succeeded = 0, failed = 0, processed = 0;
   const db = getDb();
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   for (const row of await listActiveIntegrations()) {
     if (!row.domainId) continue;
+    processed += 1;
     const adapter = getAdapter(row.serverType as MailServerType);
     try {
       const events = await adapter.getDeliveryEvents(buildConfig(row), since, 10000);
@@ -169,8 +189,11 @@ export async function aggregateAllRecipientDomainStats(): Promise<void> {
           recordedAt: now,
         })),
       );
+      succeeded += 1;
     } catch (e) {
       handleAdapterError(row, 'aggregateRecipientDomainStats', e);
+      if (!(e instanceof AdapterUnsupportedError)) failed += 1;
     }
   }
+  await run.success({ itemsProcessed: processed, itemsSucceeded: succeeded, itemsFailed: failed });
 }

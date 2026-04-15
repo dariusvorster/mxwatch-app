@@ -1,4 +1,4 @@
-import { getDb, schema, nanoid } from '@mxwatch/db';
+import { getDb, schema, nanoid, logger } from '@mxwatch/db';
 import { decryptJSON } from '@mxwatch/alerts';
 import { StalwartClient } from '@mxwatch/monitor';
 import { eq } from 'drizzle-orm';
@@ -46,13 +46,24 @@ export async function pullStalwartForIntegration(integrationId: string) {
 }
 
 export async function pullAllStalwart(): Promise<void> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(schema.stalwartIntegrations)
-    .where(eq(schema.stalwartIntegrations.pullEnabled, true));
-  for (const r of rows) {
-    try { await pullStalwartForIntegration(r.id); }
-    catch (e) { console.error(`[stalwart-pull] ${r.name} failed`, e); }
+  const run = await logger.job('stalwart-pull');
+  let succeeded = 0, failed = 0;
+  try {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(schema.stalwartIntegrations)
+      .where(eq(schema.stalwartIntegrations.pullEnabled, true));
+    for (const r of rows) {
+      try { await pullStalwartForIntegration(r.id); succeeded += 1; }
+      catch (e) {
+        failed += 1;
+        void logger.error('stalwart', 'Stalwart pull failed', e, { integration: r.name });
+      }
+    }
+    await run.success({ itemsProcessed: rows.length, itemsSucceeded: succeeded, itemsFailed: failed });
+  } catch (e) {
+    await run.fail(e);
+    throw e;
   }
 }

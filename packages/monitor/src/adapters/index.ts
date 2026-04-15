@@ -31,3 +31,4 @@ export function getAdapter(type: MailServerType | null | undefined): MailServerA
 export * from './types';
 export { GenericSMTPAdapter } from './generic-smtp';
 export { StalwartAdapter } from './stalwart';
+export { PostfixLogParser, parsePostfixTimestamp } from './postfix-log-parser';

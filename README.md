@@ -99,6 +99,27 @@ Requires **Node 20+** and **pnpm 9+**.
 - Pass / fail timeline chart (30-day window)
 - **Unexpected senders** detection — source IPs that sent mail as your domain but aren't in your SPF `ip4:` / `ip6:` literals
 
+### Security
+
+- **Two-factor authentication** — TOTP via any authenticator app (1Password, Authy, Google Authenticator, Bitwarden…). Backup codes issued once at setup and redeemable one-time on `/auth/2fa`. Cloud mode redirects signed-in users without 2FA to `/setup/2fa`.
+- **Session management** — `/settings/security` lists every active session (UA + IP + created-age) with per-session revoke and "log out all other sessions". Current session is flagged.
+- **API tokens** — account-scoped bearer tokens with named scopes (`domains:read`, `checks:read`, `reports:read`, `alerts:read`, `alerts:write`), optional expiry, and per-token last-used tracking. Token plaintext (`mxw_live_…` / `mxw_self_…`) is shown exactly once; only a SHA-256 hash is stored.
+- **IP allowlist** — any number of IPs or CIDRs; when non-empty, every tRPC request is forbidden unless the client IP matches. `/auth/blocked` page surfaces the caller's IP so they can unlock themselves from the right network.
+- **Password change** — 12-char minimum, revokes other sessions, surfaced collapsed on the Security page.
+- **Activity log** — last 50 user-scoped security events (login, session revoke, token create/revoke, allowlist change, password change, 2FA changes).
+
+### Logging
+
+Every action and every scheduled job writes to two sinks: append-only NDJSON (`$LOG_DIR/mxwatch.log` + daily rotated archives) and a SQLite `app_logs` table searchable from the UI. Daily rotation keeps rotated files + SQLite rows inside `LOG_RETENTION_DAYS` (default 30).
+
+- **Per-user log level** — `debug / info / warn / error`, changeable at `/settings/logs`; the running logger picks it up immediately via `setLogLevel` (no restart).
+- **Job runs** — one `job_runs` row per scheduled-job invocation with status (`running / success / partial / failed`), duration, and items-processed/succeeded/failed counters. AdapterUnsupported throws don't count as failures.
+- **`/logs` page** — level / category / search filters + the last N job runs at the top. Rows expand to show the full detail JSON + stack trace.
+- **Domain-detail Logs tab** — job runs + log entries scoped to that domain with an All / Errors / Jobs client-side filter.
+- **Topbar error badge** — red pill ⚠ N errors that appears when `app_logs` has >0 error rows in the last 24h (refreshes every 60s), linking straight to `/logs?level=error`.
+- **NDJSON export** — download the last 7 or 30 days as `mxwatch-logs-YYYY-MM-DD.ndjson` from `/logs` or `/settings/logs`.
+- **Sensitive-key redaction** — the logger sanitizes `password`, `secret`, `token`, `key`, `apikey`, `totpsecret`, `passwordhash`, `authorization` substrings to `[REDACTED]` before writing to either sink.
+
 ### Alerts
 
 - Channels: **email**, **Slack** (incoming webhook), **ntfy** (self-hosted ntfy works too), **generic webhook** with optional HMAC secret
@@ -198,6 +219,7 @@ mxwatch-app/
 | `auth-failure-pull` | 5m | V4 — `getAuthFailures`, deduplicated against the last 10 min |
 | `recipient-domain-aggregate` | hourly | V4 — pulls 24h delivery events, aggregates per recipient domain into rollups |
 | `postmaster-sync` | daily 04:00 UTC | Gmail Postmaster Tools sync |
+| `log-rotation` | daily 02:00 UTC | Rotates mxwatch.log → mxwatch.YYYY-MM-DD.log; prunes rotated files + app_logs rows past LOG_RETENTION_DAYS |
 
 ---
 
@@ -213,6 +235,10 @@ Everything is in `.env`. See [`.env.example`](.env.example) for the full list. E
 | `NEXT_PUBLIC_APP_URL` | Public URL, e.g. `https://mxwatch.example.com` |
 | `ALERT_SMTP_*` | Outbound SMTP for email alerts |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional — enables Postmaster Tools |
+| `LOG_LEVEL` | `debug / info / warn / error`, default `info` |
+| `LOG_DIR` | Where NDJSON files live (default `/data/logs` inside Docker) |
+| `LOG_RETENTION_DAYS` | Daily-rotation retention (default 30) |
+| `NEXT_PUBLIC_MXWATCH_CLOUD` | `1` = force 2FA enrolment on every signed-in user |
 
 ---
 

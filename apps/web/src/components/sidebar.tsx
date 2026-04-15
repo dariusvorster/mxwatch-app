@@ -260,7 +260,7 @@ export function Sidebar() {
             letterSpacing: '0.04em',
           }}
         >
-          v3
+          v4
         </span>
       </div>
 
@@ -303,7 +303,7 @@ export function Sidebar() {
                 {session.user?.name ?? session.user?.email}
               </div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
-                self-hosted · v3
+                self-hosted · v4
               </div>
             </div>
           </>

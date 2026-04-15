@@ -31,7 +31,7 @@ export function BrandMark({ size = 20 }: { size?: number }) {
           letterSpacing: '0.04em',
         }}
       >
-        v3
+        v4
       </span>
     </div>
   );

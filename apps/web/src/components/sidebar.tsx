@@ -195,6 +195,10 @@ export function Sidebar() {
           label: 'Record builder', href: '/tools/record-builder', icon: IconSettings,
           matches: /^\/tools\/record-builder/,
         },
+        {
+          label: 'Propagation checker', href: '/tools/propagation', icon: IconActivity,
+          matches: /^\/tools\/propagation/,
+        },
       ],
     },
     {

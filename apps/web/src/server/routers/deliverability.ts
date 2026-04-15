@@ -48,6 +48,53 @@ export const deliverabilityRouter = router({
       return { id, testAddress, expiresAt };
     }),
 
+  /**
+   * Mode 3 — manual header paste. User copies full raw headers from their
+   * mail client, posts them here, gets a score back + persists a test row.
+   * No SMTP infrastructure required on the user side.
+   */
+  analyseHeaders: protectedProcedure
+    .input(z.object({
+      domainId: z.string().optional(),
+      headersPaste: z.string().min(50).max(50_000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.domainId) {
+        const [owned] = await ctx.db
+          .select()
+          .from(schema.domains)
+          .where(and(eq(schema.domains.id, input.domainId), eq(schema.domains.userId, ctx.user.id)))
+          .limit(1);
+        if (!owned) throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+
+      const { scoreFromHeaderPaste } = await import('@/lib/deliverability-scorer');
+      const result = await scoreFromHeaderPaste(input.headersPaste);
+
+      const id = nanoid();
+      const now = new Date();
+      // Manual tests don't have a real inbox window; we still record an
+      // expiresAt to satisfy the NOT NULL constraint.
+      await ctx.db.insert(schema.deliverabilityTests).values({
+        id,
+        userId: ctx.user.id,
+        domainId: input.domainId ?? null,
+        // Synthetic address so the UNIQUE index still passes.
+        testAddress: `manual-${id}@local`,
+        sendingMode: 'manual',
+        status: 'analyzed',
+        score: Math.round(result.score * 10),
+        results: JSON.stringify(result.checks),
+        rawHeaders: input.headersPaste,
+        receivedAt: now,
+        createdAt: now,
+        expiresAt: now,
+        inboxMode: 'manual',
+        analysisSource: 'manual_paste',
+      });
+      return { id, score: result.score, checks: result.checks };
+    }),
+
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {

@@ -207,6 +207,22 @@ See the [full V3.5 spec](mxwatch-v3.5-spec.md) for details on the last release.
 
 ---
 
+## Troubleshooting
+
+### DKIM selectors showing as "not found" after upgrade
+
+Older builds accepted the full DNS form (e.g. `mail._domainkey.example.com`) and stored it verbatim, which caused the DNS probe to double-append `._domainkey`. Current code normalizes on input and at probe time, but pre-existing rows need a one-time cleanup:
+
+```bash
+node scripts/migrations/normalize-dkim-selectors.mjs
+# or in Docker:
+# docker compose exec web node scripts/migrations/normalize-dkim-selectors.mjs /app/data/mxwatch.db
+```
+
+Safe to re-run — idempotent.
+
+---
+
 ## Contributing
 
 Issues and PRs welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the quick version.

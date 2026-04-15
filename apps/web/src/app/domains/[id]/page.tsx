@@ -315,6 +315,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
 
         <PillTabsContent value="history">
           <div className="space-y-4">
+            <DomainTimelineCard domainId={id} />
             <DnsHistoryCard domainId={id} />
           </div>
         </PillTabsContent>
@@ -745,6 +746,103 @@ function UnexpectedSendersCard({ domainId }: { domainId: string }) {
               </table>
             </div>
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DomainTimelineCard({ domainId }: { domainId: string }) {
+  const alerts = trpc.alerts.history.useQuery({ domainId, onlyActive: false });
+  const delists = trpc.delist.list.useQuery({ domainId });
+
+  const items: { ts: Date; kind: 'alert' | 'delist'; severity: string; title: string; detail: string }[] = [];
+
+  for (const a of alerts.data ?? []) {
+    items.push({
+      ts: new Date(a.firedAt),
+      kind: 'alert',
+      severity: a.resolvedAt ? 'resolved' : 'active',
+      title: a.type.replace(/_/g, ' '),
+      detail: a.message,
+    });
+    if (a.resolvedAt) {
+      items.push({
+        ts: new Date(a.resolvedAt),
+        kind: 'alert',
+        severity: 'resolved',
+        title: `${a.type.replace(/_/g, ' ')} resolved`,
+        detail: a.message,
+      });
+    }
+  }
+  for (const d of delists.data ?? []) {
+    items.push({
+      ts: new Date(d.createdAt),
+      kind: 'delist',
+      severity: d.status,
+      title: `delist · ${d.rblName}`,
+      detail: `${d.listedValue} — ${d.status.replace('_', ' ')}`,
+    });
+    if (d.clearedAt) {
+      items.push({
+        ts: new Date(d.clearedAt),
+        kind: 'delist',
+        severity: 'cleared',
+        title: `delist cleared · ${d.rblName}`,
+        detail: d.listedValue,
+      });
+    }
+  }
+  items.sort((a, b) => b.ts.getTime() - a.ts.getTime());
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Activity timeline</CardTitle></CardHeader>
+      <CardContent>
+        {alerts.isLoading || delists.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No alerts or delist events yet.</p>
+        ) : (
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {items.slice(0, 40).map((it, i) => (
+              <li
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  paddingBottom: 8,
+                  borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none',
+                }}
+              >
+                <span
+                  style={{
+                    width: 8, height: 8, borderRadius: 99, marginTop: 6, flexShrink: 0,
+                    background:
+                      it.severity === 'cleared' || it.severity === 'resolved'
+                        ? 'var(--green)'
+                        : it.severity === 'active'
+                        ? 'var(--red)'
+                        : it.severity === 'expired' || it.severity === 'rejected'
+                        ? 'var(--amber)'
+                        : 'var(--blue)',
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>
+                      {it.kind === 'alert' ? 'alert' : 'delist'} · {it.title}
+                    </span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
+                      {it.ts.toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{it.detail}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Card>

@@ -20,18 +20,32 @@ interface NavItem {
   matches?: RegExp;    // active when pathname matches
 }
 
-function Initial({ email }: { email?: string | null }) {
+function Avatar({ email, image, size = 44 }: { email?: string | null; image?: string | null; size?: number }) {
+  if (image) {
+    return (
+      <div
+        style={{
+          width: size, height: size, borderRadius: size / 2,
+          background: `center/cover url(${image})`,
+          border: '1px solid var(--border)',
+          flexShrink: 0,
+        }}
+        aria-hidden
+      />
+    );
+  }
   const letter = email?.[0]?.toUpperCase() ?? '?';
   return (
     <div
       className="flex items-center justify-center rounded-full"
       style={{
-        width: 28, height: 28,
+        width: size, height: size,
         background: 'var(--blue-dim)',
         color: 'var(--blue)',
         fontFamily: 'var(--mono)',
         fontWeight: 600,
-        fontSize: 12,
+        fontSize: Math.round(size * 0.42),
+        flexShrink: 0,
       }}
     >
       {letter}
@@ -279,55 +293,64 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User + theme toggle footer */}
+      {/* User footer — avatar on the left, three action buttons on top,
+          name + deployment badge underneath. */}
       <div
         style={{
-          padding: 12,
+          padding: 14,
           borderTop: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
+          gap: 12,
           background: 'var(--surf)',
         }}
       >
         {session ? (
           <>
-            <Initial email={session.user?.email} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500,
-                  color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                }}
-              >
-                {session.user?.name ?? session.user?.email}
+            <Link href="/settings/profile" aria-label="Profile" title="Profile">
+              <Avatar email={session.user?.email} image={(session.user as any)?.image ?? null} size={44} />
+            </Link>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <Link
+                  href="/settings"
+                  aria-label="Settings"
+                  title="Settings"
+                  style={iconButtonStyle}
+                >
+                  <IconSettings size={14} />
+                </Link>
+                <ThemeToggle />
+                <LogoutButton />
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
-                self-hosted · v4
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500,
+                    color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}
+                >
+                  {session.user?.name ?? session.user?.email}
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
+                  self-hosted · v4
+                </div>
               </div>
             </div>
           </>
         ) : (
           <div style={{ flex: 1, fontSize: 12, color: 'var(--text3)' }}>Not signed in</div>
         )}
-        <Link
-          href="/settings"
-          aria-label="Settings"
-          title="Settings"
-          style={{
-            width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: 6, background: 'var(--bg2)', color: 'var(--text2)',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <IconSettings size={14} />
-        </Link>
-        <ThemeToggle />
-        {session && <LogoutButton />}
       </div>
     </aside>
   );
 }
+
+const iconButtonStyle: React.CSSProperties = {
+  width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  borderRadius: 6, background: 'var(--bg2)', color: 'var(--text2)',
+  border: '1px solid var(--border)',
+};
 
 function LogoutButton() {
   const router = useRouter();

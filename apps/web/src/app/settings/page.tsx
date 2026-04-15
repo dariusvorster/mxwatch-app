@@ -19,6 +19,7 @@ interface Tile {
 }
 
 const TILES: Tile[] = [
+  { href: '/settings/profile', title: 'Profile', description: 'Avatar and display name.', icon: IconSettings },
   { href: '/onboarding', title: 'Setup wizard', description: 'Re-run the guided setup: domain, architecture, integration, alerts.', icon: IconPulse },
   { href: '/settings/security', title: 'Security', description: '2FA, sessions, API tokens, IP allowlist, password, activity log.', icon: IconShield },
   { href: '/settings/logs', title: 'Logging', description: 'Log level, retention, export, clear.', icon: IconActivity },

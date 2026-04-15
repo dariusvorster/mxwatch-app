@@ -8,9 +8,20 @@ export function applyPendingMigrations(dbUrl: string): void {
   try {
     sqlite.pragma('foreign_keys = ON');
 
+    const columns = (table: string) =>
+      new Set((sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+
+    const addColumn = (table: string, name: string, ddl: string) => {
+      const cols = columns(table);
+      if (cols.size === 0) return; // table missing, handled elsewhere
+      if (!cols.has(name)) {
+        sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+        console.log(`[migrate] added ${table}.${name}`);
+      }
+    };
+
     // users.onboarding_step (V3.6)
-    const userCols = sqlite.prepare(`PRAGMA table_info(users)`).all() as { name: string }[];
-    if (userCols.length > 0 && !userCols.some((c) => c.name === 'onboarding_step')) {
+    if (columns('users').size > 0 && !columns('users').has('onboarding_step')) {
       sqlite.exec(`ALTER TABLE users ADD COLUMN onboarding_step INTEGER NOT NULL DEFAULT 0`);
       sqlite.exec(`
         UPDATE users SET onboarding_step = 4
@@ -18,6 +29,17 @@ export function applyPendingMigrations(dbUrl: string): void {
       `);
       console.log('[migrate] added users.onboarding_step column');
     }
+
+    // V3.5 topology columns — defensive: add if missing on older DBs.
+    addColumn('domains', 'architecture', `TEXT DEFAULT 'direct'`);
+    addColumn('domains', 'sending_ips', `TEXT`);
+    addColumn('domains', 'sending_ip', `TEXT`);
+    addColumn('domains', 'smtp_check_host', `TEXT`);
+    addColumn('domains', 'relay_host', `TEXT`);
+    addColumn('domains', 'internal_host', `TEXT`);
+    addColumn('domains', 'outbound_provider', `TEXT`);
+    addColumn('domains', 'notes', `TEXT`);
+    addColumn('domains', 'is_active', `INTEGER DEFAULT 1`);
 
     // V4 server intelligence tables
     sqlite.exec(`

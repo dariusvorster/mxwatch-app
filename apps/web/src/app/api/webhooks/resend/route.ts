@@ -1,11 +1,24 @@
 import { NextResponse } from 'next/server';
 import { handleDeliveryEvent } from '@/lib/handle-delivery-event';
+import { verifyResend } from '@/lib/webhook-verify';
+import { logger } from '@mxwatch/db';
 
-// Resend webhook. Payload shape: { type, data: { from, to, bounce: { message } ... } }
-// Signature verification (Svix) is TODO — set up a shared secret outside the
-// code for now, or rely on path-obscurity in self-host deployments.
+// Resend webhook (Svix-signed). MXWATCH_WEBHOOK_RESEND_SECRET must be set —
+// the endpoint returns 503 until it is so misconfiguration is loud.
 export async function POST(req: Request) {
-  const payload = await req.json().catch(() => null) as any;
+  const rawBody = await req.text();
+  const verify = verifyResend({ rawBody, headers: req.headers });
+  if (!verify.ok) {
+    if (verify.reason === 'not_configured') {
+      void logger.warn('webhook', 'Resend webhook rejected: secret not configured');
+      return new NextResponse('Webhook secret not configured', { status: 503 });
+    }
+    void logger.warn('webhook', `Resend signature failed: ${verify.reason}`);
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
+  let payload: any;
+  try { payload = JSON.parse(rawBody); } catch { return new NextResponse('Bad JSON', { status: 400 }); }
   if (!payload?.type) return new NextResponse('Bad payload', { status: 400 });
 
   const data = payload.data ?? {};

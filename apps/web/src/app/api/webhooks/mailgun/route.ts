@@ -1,21 +1,40 @@
 import { NextResponse } from 'next/server';
 import { handleDeliveryEvent } from '@/lib/handle-delivery-event';
+import { verifyMailgun } from '@/lib/webhook-verify';
+import { logger } from '@mxwatch/db';
 
-// Mailgun webhook. Sent as application/json with {signature, event-data}.
-// Signature HMAC verification (timestamp + token + signing key) is TODO.
+// Mailgun webhook. Payload shape: { signature: { timestamp, token, signature },
+// event-data: {...} }. HMAC-SHA256(signingKey, timestamp+token) must match
+// signature.signature. MXWATCH_WEBHOOK_MAILGUN_SIGNING_KEY supplies the key.
 export async function POST(req: Request) {
   const ct = req.headers.get('content-type') ?? '';
   let payload: any = null;
   if (ct.includes('application/json')) {
     payload = await req.json().catch(() => null);
   } else {
-    // Legacy multipart form submissions
     const fd = await req.formData().catch(() => null);
     if (fd) {
       const raw = fd.get('event-data');
-      payload = { 'event-data': raw ? JSON.parse(String(raw)) : null };
+      const sig = fd.get('signature');
+      payload = {
+        'event-data': raw ? JSON.parse(String(raw)) : null,
+        signature: sig ? JSON.parse(String(sig)) : {
+          timestamp: fd.get('timestamp'), token: fd.get('token'), signature: fd.get('signature'),
+        },
+      };
     }
   }
+
+  const verify = verifyMailgun({ signature: payload?.signature });
+  if (!verify.ok) {
+    if (verify.reason === 'not_configured') {
+      void logger.warn('webhook', 'Mailgun webhook rejected: signing key not configured');
+      return new NextResponse('Webhook signing key not configured', { status: 503 });
+    }
+    void logger.warn('webhook', `Mailgun signature failed: ${verify.reason}`);
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
   const e = payload?.['event-data'];
   if (!e?.event) return new NextResponse('Bad payload', { status: 400 });
 

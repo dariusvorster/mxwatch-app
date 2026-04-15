@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
 import { handleDeliveryEvent } from '@/lib/handle-delivery-event';
+import { verifyPostmark } from '@/lib/webhook-verify';
+import { logger } from '@mxwatch/db';
 
-// Postmark webhook. RecordType drives the event kind.
-// Docs: https://postmarkapp.com/developer/webhooks/webhooks-overview
+// Postmark webhook. Authenticated via HTTP Basic auth — set
+// MXWATCH_WEBHOOK_POSTMARK_BASIC_AUTH to 'user:password' and configure the
+// same creds in Postmark's webhook settings.
 export async function POST(req: Request) {
+  const verify = verifyPostmark({ authHeader: req.headers.get('authorization') });
+  if (!verify.ok) {
+    if (verify.reason === 'not_configured') {
+      void logger.warn('webhook', 'Postmark webhook rejected: basic-auth not configured');
+      return new NextResponse('Webhook auth not configured', { status: 503 });
+    }
+    void logger.warn('webhook', `Postmark auth failed: ${verify.reason}`);
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
   const payload = await req.json().catch(() => null) as any;
   if (!payload?.RecordType) return new NextResponse('Bad payload', { status: 400 });
 

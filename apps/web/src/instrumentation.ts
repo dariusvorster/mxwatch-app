@@ -3,12 +3,20 @@ export async function register() {
 
   // Run idempotent DB migrations before anything else touches the DB.
   // Adds V3.6+ columns (users.onboarding_step) and V4 tables.
-  const { applyPendingMigrations } = await import('@mxwatch/db');
+  const { applyPendingMigrations, logger, rotateAndPruneLogs } = await import('@mxwatch/db');
   try {
     applyPendingMigrations(process.env.DATABASE_URL ?? './data/mxwatch.db');
   } catch (e) {
     console.error('[instrumentation] migration failed', e);
   }
+
+  // Phase 2 — startup banner via the structured logger. Migrations had to
+  // run first because the logger writes to app_logs.
+  void logger.info('system', 'MxWatch starting', {
+    nodeEnv: process.env.NODE_ENV,
+    cloud: process.env.MXWATCH_CLOUD === '1',
+    logLevel: process.env.LOG_LEVEL ?? 'info',
+  });
 
   const { startSmtpListener } = await import('@mxwatch/monitor/smtp-listener');
   const { scheduleJob } = await import('@mxwatch/monitor/scheduler');
@@ -76,6 +84,10 @@ export async function register() {
   // Daily at 03:00 UTC: TLS certificate check for mail/web/mx hostnames
   const { scheduleDailyUtc: scheduleDailyCert } = await import('@mxwatch/monitor/scheduler');
   scheduleDailyCert('cert-check', 3, runAllCertChecks);
+
+  // Daily at 02:00 UTC: rotate the active log file + prune SQLite app_logs
+  // and rotated files past LOG_RETENTION_DAYS.
+  scheduleDailyCert('log-rotation', 2, rotateAndPruneLogs);
 
   // Daily at 04:00 UTC: Google Postmaster Tools sync (skipped when integration not configured)
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

@@ -113,11 +113,25 @@ Requires **Node 20+** and **pnpm 9+**.
 - **DNS Propagation Checker** — queries 19 public resolvers across 5 regions
 - **IP warm-up scheduler** — geometric ramp plan with daily targets
 
+### Server intelligence (V4)
+
+The deepest-visibility part of MxWatch. Once you connect a mail-server API, MxWatch pulls queue / delivery / auth / bounce data and surfaces it where it's actionable.
+
+- **Auto-detection engine** — give it a hostname or IP and it port-scans, grabs the SMTP banner, EHLOs for capabilities, and probes management APIs to identify Stalwart / Mailcow / Postfix / Mailu / Maddy / Haraka / Exchange. Returns confidence + suggested architecture (direct / NAT relay / split / managed).
+- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters: **Stalwart** and **Mailcow**. **Postfix** stub (agent-based, coming). Generic SMTP fallback for everything else.
+- **Queue intelligence** — depth + active/deferred/failed + oldest-message-age, snapshotted every 5 min for the timeline chart.
+- **Auth-failure monitoring** — Dovecot/Stalwart auth-failed events with per-IP aggregation over rolling windows. Brute-force candidates surface at the top.
+- **Bounce intelligence** — DSN parser (RFC 3464) extracts Final-Recipient / Status / Diagnostic-Code, classifies hard / soft / policy, detects RBL mentions in the diagnostic. Correlator joins each bounce with active RBL listings + recent bounce spikes per recipient domain to assign severity and a suggested action.
+- **Per-recipient-domain delivery rates** — the Postmaster-Tools-for-everyone view. Sent / delivered / deferred / bounced / rate per provider (gmail.com, outlook.com, yahoo.com, …) over 1h / 24h / 7d / 30d windows. Anything below 95% gets flagged as a problem domain.
+- **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed).
+
 ### Integrations
 
-- **Stalwart Mail Server** — pull queue / delivery / TLS stats from the management API; receive delivery-failure webhooks
-- **Gmail Postmaster Tools** — OAuth connect, daily sync of spam rate / IP reputation / DMARC pass rate
-- **Mail-log ingest** — HTTP POST endpoint for your MTA to push raw events; auto-correlated against DMARC source IPs
+- **Stalwart Mail Server** — full V4 adapter (pull stats, queue, delivery events, auth failures, recipient-domain stats) plus the legacy push-webhook receiver.
+- **Mailcow** — full V4 adapter against the X-API-Key REST API; Postfix logs are parsed for delivery events and Dovecot logs for auth failures.
+- **Postfix** — adapter stub. Agent-based ingest is in design (will tail `/var/log/mail.log` over WebSocket).
+- **Gmail Postmaster Tools** — OAuth connect, daily sync of spam rate / IP reputation / DMARC pass rate.
+- **Mail-log ingest** — HTTP POST endpoint for your MTA to push raw events; auto-correlated against DMARC source IPs.
 
 ### API
 
@@ -175,7 +189,11 @@ mxwatch-app/
 | `smtp-check` | 2h | SMTP health against primary MX |
 | `cert-check` | daily 03:00 UTC | TLS cert expiry |
 | `watched-check` | 2h | External domains sweep |
-| `stalwart-pull` | 60s | Stalwart management-API stats |
+| `stalwart-pull` | 60s | Legacy Stalwart management-API stats (V3.5 path) |
+| `server-stats-pull` | 60s | V4 — `getStats` against every server integration; opportunistic queue snapshot |
+| `queue-snapshot` | 5m | V4 — full `getQueue` snapshot (active/deferred/failed/oldest-age) |
+| `auth-failure-pull` | 5m | V4 — `getAuthFailures`, deduplicated against the last 10 min |
+| `recipient-domain-aggregate` | hourly | V4 — pulls 24h delivery events, aggregates per recipient domain into rollups |
 | `postmaster-sync` | daily 04:00 UTC | Gmail Postmaster Tools sync |
 
 ---
@@ -197,17 +215,25 @@ Everything is in `.env`. See [`.env.example`](.env.example) for the full list. E
 
 ## Roadmap
 
-Shipped in V1 / V2 / V3 / V3.5. What's still coming:
+Shipped through V4 — auto-detection, multi-server adapters (Stalwart + Mailcow), bounce intelligence, queue snapshots, auth-failure monitoring, per-recipient-domain delivery rates, plus the new server-intelligence UI section. Build orders captured in [`mxwatch-v3.5-spec.md`](mxwatch-v3.5-spec.md) and [`mxwatch-v4-spec.md`](mxwatch-v4-spec.md).
 
-- **Cloud-hosted tier** (`mxwatch.app`) — in progress, infrastructure code exists, pending business registration
+What's still coming:
+
+- **Postfix agent** — WebSocket-based log/queue ingest from non-API hosts (V4.1)
+- **Mailu / Maddy / Haraka adapters** — V4.1 stubs to flesh out
+- **Cloud-hosted tier** (`mxwatch.app`) — infrastructure code exists, pending business registration
 - **Team members + workspaces** — multi-user workspaces with owner/admin/viewer roles
 - **Stripe-replacement billing** — Lemon Squeezy integration plumbed in, dormant
-
-See the [full V3.5 spec](mxwatch-v3.5-spec.md) for details on the last release.
 
 ---
 
 ## Troubleshooting
+
+### Database migrations after upgrade
+
+V3.6+ added a `users.onboarding_step` column and V4 added five new tables (`server_integrations`, `queue_snapshots`, `auth_failure_events`, `bounce_events`, `recipient_domain_stats`). On boot the app runs `applyPendingMigrations` from `packages/db/src/migrate.ts` — it's idempotent (`PRAGMA table_info` + `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` only when the column is missing) and also defensively backfills V3.5 columns on the `domains` table. No manual `db:push` required after pulling.
+
+If you upgraded straight from <V3.5 and see `tRPC` 500s on `domains.list`, restart the container — the migration runs once at startup.
 
 ### DKIM selectors showing as "not found" after upgrade
 

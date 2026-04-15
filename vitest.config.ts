@@ -12,6 +12,8 @@ export default defineConfig({
       '@mxwatch/monitor/stalwart-parser': resolve(root, 'packages/monitor/src/stalwart-parser.ts'),
       '@mxwatch/alerts': resolve(root, 'packages/alerts/src/index.ts'),
       '@mxwatch/alerts/crypto': resolve(root, 'packages/alerts/src/crypto.ts'),
+      '@mxwatch/db': resolve(root, 'packages/db/src/index.ts'),
+      '@mxwatch/db/schema': resolve(root, 'packages/db/src/schema.ts'),
       '@': resolve(root, 'apps/web/src'),
     },
   },

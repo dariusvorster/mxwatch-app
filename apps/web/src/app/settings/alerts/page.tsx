@@ -50,6 +50,8 @@ export default function AlertChannelsPage() {
   const [kind, setKind] = useState<ChannelKind>('email');
   const [error, setError] = useState<string | null>(null);
   const [testMsg, setTestMsg] = useState<Record<string, string>>({});
+  const [testingAll, setTestingAll] = useState(false);
+  const [testAllSummary, setTestAllSummary] = useState<{ ok: number; fail: number } | null>(null);
 
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
@@ -93,6 +95,21 @@ export default function AlertChannelsPage() {
       setTestMsg((m) => ({ ...m, [channelId]: err.message ?? 'Failed' }));
     }
     setTimeout(() => setTestMsg((m) => { const n = { ...m }; delete n[channelId]; return n; }), 4000);
+  }
+
+  async function onTestAll() {
+    const active = (channels.data ?? []).filter((c) => c.isActive);
+    if (active.length === 0) return;
+    setTestingAll(true);
+    setTestAllSummary(null);
+    let ok = 0, fail = 0;
+    for (const c of active) {
+      try { await sendTest.mutateAsync({ channelId: c.id }); ok += 1; }
+      catch { fail += 1; }
+    }
+    setTestingAll(false);
+    setTestAllSummary({ ok, fail });
+    setTimeout(() => setTestAllSummary(null), 6000);
   }
 
   return (
@@ -159,7 +176,26 @@ export default function AlertChannelsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Channels ({channels.data?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Channels ({channels.data?.length ?? 0})</CardTitle>
+            {(channels.data ?? []).some((c) => c.isActive) && (
+              <div className="flex items-center gap-3">
+                {testAllSummary && (
+                  <span
+                    className="text-xs font-mono"
+                    style={{ color: testAllSummary.fail > 0 ? 'var(--red)' : 'var(--green)' }}
+                  >
+                    {testAllSummary.ok} ok · {testAllSummary.fail} failed
+                  </span>
+                )}
+                <Button size="sm" variant="outline" disabled={testingAll} onClick={() => void onTestAll()}>
+                  {testingAll ? 'Testing…' : 'Test all active'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           {channels.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>

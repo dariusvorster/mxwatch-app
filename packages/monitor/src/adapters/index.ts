@@ -1,6 +1,7 @@
 import type { MailServerType } from '../server-detect';
 import type { MailServerAdapter } from './types';
 import { GenericSMTPAdapter } from './generic-smtp';
+import { StalwartAdapter } from './stalwart';
 
 /**
  * Registry maps detected server type → adapter implementation. As concrete
@@ -11,7 +12,7 @@ import { GenericSMTPAdapter } from './generic-smtp';
 const generic = new GenericSMTPAdapter();
 
 export const ADAPTER_REGISTRY: Record<MailServerType, MailServerAdapter> = {
-  stalwart: generic,
+  stalwart: new StalwartAdapter(),
   mailcow: generic,
   postfix: generic,
   postfix_dovecot: generic,
@@ -29,3 +30,4 @@ export function getAdapter(type: MailServerType | null | undefined): MailServerA
 
 export * from './types';
 export { GenericSMTPAdapter } from './generic-smtp';
+export { StalwartAdapter } from './stalwart';

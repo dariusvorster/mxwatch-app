@@ -30,11 +30,33 @@ export const deliverabilityRouter = router({
   create: protectedProcedure
     .input(z.object({ domainId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      // Derive the test address from the user's inbox config so all three
+      // automated modes (cloud, own_domain, stalwart_relay) land mail where
+      // the right handler is listening. Fallback: whatever's under NEXT_PUBLIC_APP_URL.
+      const [cfg] = await ctx.db
+        .select()
+        .from(schema.deliverabilityInboxConfig)
+        .where(eq(schema.deliverabilityInboxConfig.userId, ctx.user.id))
+        .limit(1);
+
+      let testAddress: string;
+      let inboxMode: 'own_domain' | 'stalwart_relay' | 'cloud' = 'cloud';
+      if (cfg?.mode === 'own_domain' && cfg.inboxDomain) {
+        testAddress = `${generateLocalPart()}@${cfg.inboxDomain}`.toLowerCase();
+        inboxMode = 'own_domain';
+      } else if (cfg?.mode === 'stalwart_relay' && cfg.stalwartCatchallAddress) {
+        // catchallAddressPattern is `mxwatch-test-*@<domain>` — swap the wildcard for a random id.
+        const domain = cfg.stalwartCatchallAddress.split('@')[1] ?? 'localhost';
+        const random = Math.random().toString(36).slice(2, 10);
+        testAddress = `mxwatch-test-${random}@${domain}`.toLowerCase();
+        inboxMode = 'stalwart_relay';
+      } else {
+        testAddress = testAddressFor(generateLocalPart()).toLowerCase();
+      }
+
       const id = nanoid();
-      const local = generateLocalPart();
-      const testAddress = testAddressFor(local).toLowerCase();
       const now = new Date();
-      const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 min window
+      const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
       await ctx.db.insert(schema.deliverabilityTests).values({
         id,
         userId: ctx.user.id,
@@ -44,8 +66,9 @@ export const deliverabilityRouter = router({
         status: 'pending',
         createdAt: now,
         expiresAt,
+        inboxMode,
       });
-      return { id, testAddress, expiresAt };
+      return { id, testAddress, expiresAt, inboxMode };
     }),
 
   /**

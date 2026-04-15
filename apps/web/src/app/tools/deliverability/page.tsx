@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 import { PageHeader } from '@/components/page-header';
@@ -26,6 +27,14 @@ export default function DeliverabilityPage() {
     },
   );
   const history = trpc.deliverability.history.useQuery({ limit: 10 }, { enabled: !!session });
+  const inboxConfig = trpc.inboxSetup.getConfig.useQuery(undefined, { enabled: !!session });
+  const analyse = trpc.deliverability.analyseHeaders.useMutation({
+    onSuccess: (r) => { setTestId(r.id); history.refetch(); },
+  });
+  const [paste, setPaste] = useState('');
+  const isCloud = process.env.NEXT_PUBLIC_MXWATCH_CLOUD === '1';
+  const needsSetup = !isCloud && inboxConfig.data === null && !inboxConfig.isLoading;
+  const mode = inboxConfig.data?.mode ?? (isCloud ? 'cloud' : null);
 
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
@@ -44,10 +53,55 @@ export default function DeliverabilityPage() {
         subtitle="Send an email from your mail server to a unique inbox. MxWatch scores it like mail-tester."
       />
 
-      {!testId && (
+      {needsSetup && (
+        <div style={{ background: 'var(--amber-dim)', border: '1px solid var(--amber-border)', borderRadius: 'var(--radius)', padding: '14px 18px' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--amber)', marginBottom: 6 }}>
+            Inbox not configured yet
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+            Self-hosted MxWatch needs one of three inbox modes — own domain, Stalwart relay, or manual header paste — before you can run deliverability tests.
+          </p>
+          <Link href="/setup/inbox" style={{
+            fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600,
+            padding: '8px 14px', borderRadius: 7,
+            background: 'var(--blue)', color: '#fff', border: '1px solid var(--blue)',
+            textDecoration: 'none',
+          }}>Open the inbox setup wizard →</Link>
+        </div>
+      )}
+
+      {mode === 'manual' && !testId && (
+        <div style={{ background: 'var(--surf)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Paste raw email headers</div>
+          <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+            Send yourself a test email, open the "Show original" / "All headers" view in your mail client, and paste the full headers below.
+          </p>
+          <textarea
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            rows={12}
+            placeholder="Received: from ...&#10;Authentication-Results: ...&#10;..."
+            style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 10, background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}
+          />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => analyse.mutate({ headersPaste: paste })}
+              disabled={paste.trim().length < 50 || analyse.isPending}
+              style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, padding: '9px 16px', borderRadius: 7, background: 'var(--blue)', color: '#fff', border: '1px solid var(--blue)', cursor: 'pointer' }}
+            >
+              {analyse.isPending ? 'Analysing…' : 'Analyse headers'}
+            </button>
+            {analyse.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{analyse.error.message}</span>}
+          </div>
+        </div>
+      )}
+
+      {mode !== 'manual' && !needsSetup && !testId && (
         <div style={{ background: 'var(--surf)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 18px' }}>
           <p style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
             Press the button to generate a unique test inbox valid for 10 minutes. Then send an email to that address from the domain you want to test.
+            {mode && <span style={{ color: 'var(--text3)' }}> Mode: <b>{mode}</b></span>}
           </p>
           <button
             type="button"

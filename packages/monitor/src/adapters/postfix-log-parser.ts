@@ -28,7 +28,7 @@ export function parsePostfixTimestamp(line: string, now: Date = new Date()): Dat
   }
   // Classic syslog: "Apr 14 10:23:45"
   const sys = line.match(/^([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})/);
-  if (sys) {
+  if (sys && sys[1]) {
     const month = MONTHS[sys[1]];
     if (month == null) return null;
     const day = Number(sys[2]);
@@ -97,7 +97,7 @@ export class PostfixLogParser {
       const line = raw.trim();
       if (!line) continue;
       const statusMatch = line.match(/\bstatus=([a-z]+)/);
-      if (!statusMatch) continue;
+      if (!statusMatch?.[1]) continue;
       const type = STATUSES[statusMatch[1]];
       if (!type) continue;
       const ts = parsePostfixTimestamp(line, now);

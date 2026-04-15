@@ -64,8 +64,36 @@ export class MailuAdapter implements MailServerAdapter {
   async getQueue(): Promise<QueueStats> {
     throw new AdapterUnsupportedError('MailuAdapter', 'getQueue');
   }
-  async getDeliveryEvents(): Promise<DeliveryEvent[]> {
-    throw new AdapterUnsupportedError('MailuAdapter', 'getDeliveryEvents');
+  async getDeliveryEvents(config: AdapterConfig, since: Date, limit: number): Promise<DeliveryEvent[]> {
+    // Mailu exposes a log endpoint when `LOG_API=True` is set in mailu.env.
+    // Treat 404 as "not enabled" and return [] rather than throwing so the
+    // scheduler doesn't flag the integration as errored.
+    try {
+      const logs = await this.get<any>(config, `/api/v1/log?limit=${limit}`);
+      const items: any[] = Array.isArray(logs) ? logs : Array.isArray(logs?.logs) ? logs.logs : [];
+      return items
+        .filter((e) => e.time && new Date(e.time) >= since)
+        .map((e) => {
+          const to = String(e.to ?? e.recipient ?? '').toLowerCase();
+          return {
+            id: String(e.id ?? `${e.time}-${to}`),
+            timestamp: new Date(e.time),
+            type: e.status === 'delivered' ? 'delivered'
+              : e.status === 'bounced' ? 'bounced'
+              : e.status === 'deferred' ? 'deferred'
+              : 'delivered',
+            from: String(e.from ?? ''),
+            to,
+            recipientDomain: to.includes('@') ? to.split('@').pop()! : '',
+            size: Number(e.size ?? 0),
+            delay: 0,
+            tlsUsed: Boolean(e.tls),
+            errorMessage: e.error ?? undefined,
+          };
+        });
+    } catch {
+      return [];
+    }
   }
   async getAuthFailures(): Promise<AuthFailureEvent[]> {
     throw new AdapterUnsupportedError('MailuAdapter', 'getAuthFailures');

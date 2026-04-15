@@ -17,6 +17,10 @@ export type MailServerType =
   | 'mailgun'
   | 'sendgrid'
   | 'ses'
+  // Additional self-hosted servers (integrations spec Tier 1/2)
+  | 'miab'
+  | 'postal'
+  | 'modoboa'
   | 'unknown';
 
 export type NetworkArchitecture = 'direct' | 'nat_relay' | 'split' | 'managed';

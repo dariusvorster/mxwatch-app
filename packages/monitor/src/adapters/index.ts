@@ -12,6 +12,9 @@ import { PostmarkAdapter } from './postmark';
 import { MailgunAdapter } from './mailgun';
 import { SendGridAdapter } from './sendgrid';
 import { SesAdapter } from './ses';
+import { MiabAdapter } from './miab';
+import { PostalAdapter } from './postal';
+import { ModoboaAdapter } from './modoboa';
 
 /**
  * Registry maps detected server type → adapter implementation. As concrete
@@ -35,6 +38,9 @@ export const ADAPTER_REGISTRY: Record<MailServerType, MailServerAdapter> = {
   mailgun: new MailgunAdapter(),
   sendgrid: new SendGridAdapter(),
   ses: new SesAdapter(),
+  miab: new MiabAdapter(),
+  postal: new PostalAdapter(),
+  modoboa: new ModoboaAdapter(),
   unknown: generic,
 };
 
@@ -56,4 +62,7 @@ export { PostmarkAdapter } from './postmark';
 export { MailgunAdapter } from './mailgun';
 export { SendGridAdapter } from './sendgrid';
 export { SesAdapter } from './ses';
+export { MiabAdapter } from './miab';
+export { PostalAdapter } from './postal';
+export { ModoboaAdapter } from './modoboa';
 export { PostfixLogParser, parsePostfixTimestamp } from './postfix-log-parser';

@@ -521,6 +521,7 @@ export const serverIntegrations = sqliteTable('server_integrations', {
     enum: [
       'stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange',
       'resend', 'postmark', 'mailgun', 'sendgrid', 'ses',
+      'miab', 'postal', 'modoboa',
       'unknown',
     ],
   }).notNull(),

@@ -564,6 +564,27 @@ export const authFailureEvents = sqliteTable('auth_failure_events', {
   detectedAt: integer('detected_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Delivery events — from cloud-provider webhooks or API polls. Captures
+// everything (delivered/bounced/deferred/rejected/complaint) with a link
+// back to the owning integration + domain so the UI can render a full
+// per-provider timeline rather than only the bounce feed.
+export const deliveryEvents = sqliteTable('delivery_events', {
+  id: text('id').primaryKey(),
+  integrationId: text('integration_id').references(() => serverIntegrations.id, { onDelete: 'cascade' }),
+  domainId: text('domain_id').references(() => domains.id, { onDelete: 'set null' }),
+  type: text('type', { enum: ['delivered', 'bounced', 'deferred', 'rejected', 'complaint'] }).notNull(),
+  provider: text('provider'),               // 'resend' | 'postmark' | ... | null for adapter-polled sources
+  fromAddress: text('from_address'),
+  toAddress: text('to_address'),
+  recipientDomain: text('recipient_domain'),
+  bounceType: text('bounce_type', { enum: ['hard', 'soft', 'policy'] }),
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  relatedRBL: text('related_rbl'),
+  occurredAt: integer('occurred_at', { mode: 'timestamp' }).notNull(),
+  raw: text('raw'),                         // JSON blob of the provider payload
+});
+
 // V4 — parsed bounces correlated with RBL status.
 export const bounceEvents = sqliteTable('bounce_events', {
   id: text('id').primaryKey(),

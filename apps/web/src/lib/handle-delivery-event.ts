@@ -24,44 +24,62 @@ export interface IncomingDeliveryEvent {
 export async function handleDeliveryEvent(e: IncomingDeliveryEvent): Promise<void> {
   const db = getDb();
 
-  if (e.type === 'delivered' || e.type === 'deferred' || e.type === 'rejected') {
-    void logger.debug('delivery', `${e.provider} ${e.type}`, {
-      provider: e.provider, to: e.to, from: e.from,
-    });
-    return;
-  }
-
+  // Resolve the owning domain from the sender address so every row we
+  // write is FK'd correctly.
   const senderDomain = (e.from ?? '').toLowerCase().split('@').pop();
-  if (!senderDomain) return;
+  const [owned] = senderDomain
+    ? await db
+      .select({ id: schema.domains.id, domain: schema.domains.domain })
+      .from(schema.domains)
+      .where(eq(schema.domains.domain, senderDomain))
+      .limit(1)
+    : [];
 
-  const [owned] = await db
-    .select({ id: schema.domains.id, domain: schema.domains.domain })
-    .from(schema.domains)
-    .where(eq(schema.domains.domain, senderDomain))
-    .limit(1);
   if (!owned) {
     void logger.debug('delivery', 'Ignoring webhook event for unowned domain', {
-      provider: e.provider, domain: senderDomain,
+      provider: e.provider, domain: senderDomain, type: e.type,
     });
     return;
   }
 
   const to = (e.to ?? '').toLowerCase();
   const recipientDomain = to.includes('@') ? to.split('@').pop()! : '';
-  await db.insert(schema.bounceEvents).values({
+  const occurredAt = e.timestamp ?? new Date();
+
+  // Full-fidelity delivery_events row (all event types).
+  await db.insert(schema.deliveryEvents).values({
     id: nanoid(),
+    integrationId: null,
     domainId: owned.id,
-    timestamp: e.timestamp ?? new Date(),
-    originalTo: to,
+    type: e.type,
+    provider: e.provider,
+    fromAddress: e.from ?? null,
+    toAddress: to,
     recipientDomain,
-    bounceType: e.type === 'complaint' ? 'policy' : 'hard',
+    bounceType: e.type === 'bounced' ? 'hard' : e.type === 'complaint' ? 'policy' : null,
     errorCode: e.errorCode ?? null,
     errorMessage: e.errorMessage ?? null,
-    remoteMTA: e.remoteMTA ?? null,
-    severity: e.type === 'complaint' ? 'warning' : 'info',
+    occurredAt,
+    raw: null,
   });
 
-  void logger.info('delivery', `Webhook bounce persisted from ${e.provider}`, {
-    provider: e.provider, domain: owned.domain, recipientDomain, errorCode: e.errorCode,
-  });
+  // Dedicated bounce_events row only for bounces + complaints — that's
+  // what /bounces + the RBL correlator consume.
+  if (e.type === 'bounced' || e.type === 'complaint') {
+    await db.insert(schema.bounceEvents).values({
+      id: nanoid(),
+      domainId: owned.id,
+      timestamp: occurredAt,
+      originalTo: to,
+      recipientDomain,
+      bounceType: e.type === 'complaint' ? 'policy' : 'hard',
+      errorCode: e.errorCode ?? null,
+      errorMessage: e.errorMessage ?? null,
+      remoteMTA: e.remoteMTA ?? null,
+      severity: e.type === 'complaint' ? 'warning' : 'info',
+    });
+    void logger.info('delivery', `Webhook ${e.type} persisted from ${e.provider}`, {
+      provider: e.provider, domain: owned.domain, recipientDomain, errorCode: e.errorCode,
+    });
+  }
 }

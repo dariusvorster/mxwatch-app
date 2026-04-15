@@ -92,6 +92,22 @@ const SCHEMA_DDL = `
     severity TEXT DEFAULT 'info',
     acknowledged INTEGER DEFAULT 0
   );
+  CREATE TABLE delivery_events (
+    id TEXT PRIMARY KEY NOT NULL,
+    integration_id TEXT REFERENCES server_integrations(id) ON DELETE CASCADE,
+    domain_id TEXT REFERENCES domains(id) ON DELETE SET NULL,
+    type TEXT NOT NULL,
+    provider TEXT,
+    from_address TEXT,
+    to_address TEXT,
+    recipient_domain TEXT,
+    bounce_type TEXT,
+    error_code TEXT,
+    error_message TEXT,
+    related_rbl TEXT,
+    occurred_at INTEGER NOT NULL,
+    raw TEXT
+  );
   CREATE TABLE recipient_domain_stats (
     id TEXT PRIMARY KEY NOT NULL,
     domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,

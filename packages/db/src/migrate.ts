@@ -210,6 +210,25 @@ export function applyPendingMigrations(dbUrl: string): void {
       );
       CREATE INDEX IF NOT EXISTS idx_job_runs_started_at ON job_runs(started_at);
       CREATE INDEX IF NOT EXISTS idx_job_runs_job_name ON job_runs(job_name);
+      CREATE TABLE IF NOT EXISTS delivery_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        integration_id TEXT REFERENCES server_integrations(id) ON DELETE CASCADE,
+        domain_id TEXT REFERENCES domains(id) ON DELETE SET NULL,
+        type TEXT NOT NULL,
+        provider TEXT,
+        from_address TEXT,
+        to_address TEXT,
+        recipient_domain TEXT,
+        bounce_type TEXT,
+        error_code TEXT,
+        error_message TEXT,
+        related_rbl TEXT,
+        occurred_at INTEGER NOT NULL,
+        raw TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_delivery_events_occurred_at ON delivery_events(occurred_at);
+      CREATE INDEX IF NOT EXISTS idx_delivery_events_domain_id ON delivery_events(domain_id);
+      CREATE INDEX IF NOT EXISTS idx_delivery_events_type ON delivery_events(type);
       CREATE TABLE IF NOT EXISTS recipient_domain_stats (
         id TEXT PRIMARY KEY NOT NULL,
         domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,

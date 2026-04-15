@@ -5,6 +5,28 @@ import { and, desc, eq, gte } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const bouncesRouter = router({
+  /** Full delivery-events feed for a domain (delivered / bounced / deferred
+   *  / rejected / complaint). Used by the domain-detail delivery timeline. */
+  deliveryEvents: protectedProcedure
+    .input(z.object({
+      domainId: z.string(),
+      limit: z.number().int().min(1).max(500).default(200),
+    }))
+    .query(async ({ ctx, input }) => {
+      const [owned] = await ctx.db
+        .select({ id: schema.domains.id })
+        .from(schema.domains)
+        .where(and(eq(schema.domains.id, input.domainId), eq(schema.domains.userId, ctx.user.id)))
+        .limit(1);
+      if (!owned) throw new TRPCError({ code: 'NOT_FOUND' });
+      return ctx.db
+        .select()
+        .from(schema.deliveryEvents)
+        .where(eq(schema.deliveryEvents.domainId, input.domainId))
+        .orderBy(desc(schema.deliveryEvents.occurredAt))
+        .limit(input.limit);
+    }),
+
   list: protectedProcedure
     .input(z.object({
       domainId: z.string().optional(),

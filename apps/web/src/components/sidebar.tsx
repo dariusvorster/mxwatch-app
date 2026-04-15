@@ -180,6 +180,7 @@ export function Sidebar() {
         { label: 'Certificates', href: '/certificates', icon: IconCert, matches: /^\/certificates/ },
         { label: 'Watched domains', href: '/watched', icon: IconActivity, matches: /^\/watched/ },
         { label: 'Mail servers', href: '/servers', icon: IconPulse, matches: /^\/servers/ },
+        { label: 'Delivery rates', href: '/delivery-rates', icon: IconActivity, matches: /^\/delivery-rates/ },
         { label: 'Bounces', href: '/bounces', icon: IconMail, matches: /^\/bounces/ },
       ],
     },

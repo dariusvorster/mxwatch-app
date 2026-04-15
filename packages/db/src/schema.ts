@@ -393,6 +393,89 @@ export const domainApiTokens = sqliteTable('domain_api_tokens', {
   revokedAt: integer('revoked_at', { mode: 'timestamp' }),
 });
 
+// V4 — server integrations (replaces the Stalwart-specific table for new setups
+// while the legacy stalwartIntegrations stays around until migrated).
+export const serverIntegrations = sqliteTable('server_integrations', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  domainId: text('domain_id').references(() => domains.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  // MailServerType enum — see packages/monitor/src/server-detect.ts
+  serverType: text('server_type', {
+    enum: ['stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange', 'unknown'],
+  }).notNull(),
+  // NetworkArchitecture enum — see packages/monitor/src/server-detect.ts
+  architecture: text('architecture', { enum: ['direct', 'nat_relay', 'split', 'managed'] }).notNull().default('direct'),
+  baseUrl: text('base_url'),
+  encryptedToken: text('encrypted_token'),
+  agentId: text('agent_id'),                     // Reserved for future Postfix-agent builds.
+  internalHost: text('internal_host'),
+  relayHost: text('relay_host'),
+  sendingIps: text('sending_ips'),               // JSON string[]
+  autoDetected: integer('auto_detected', { mode: 'boolean' }).default(false),
+  detectionConfidence: text('detection_confidence', { enum: ['high', 'medium', 'low'] }),
+  status: text('status', { enum: ['ok', 'error', 'unknown'] }).default('unknown'),
+  lastError: text('last_error'),
+  lastPulledAt: integer('last_pulled_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// V4 — queue depth timeseries per server integration.
+export const queueSnapshots = sqliteTable('queue_snapshots', {
+  id: text('id').primaryKey(),
+  integrationId: text('integration_id').notNull().references(() => serverIntegrations.id, { onDelete: 'cascade' }),
+  total: integer('total').notNull(),
+  active: integer('active').notNull().default(0),
+  deferred: integer('deferred').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  oldestMessageAge: integer('oldest_message_age'),
+  recordedAt: integer('recorded_at', { mode: 'timestamp' }).notNull(),
+});
+
+// V4 — auth failure / brute-force monitoring.
+export const authFailureEvents = sqliteTable('auth_failure_events', {
+  id: text('id').primaryKey(),
+  integrationId: text('integration_id').notNull().references(() => serverIntegrations.id, { onDelete: 'cascade' }),
+  ip: text('ip').notNull(),
+  count: integer('count').notNull().default(1),
+  sampleUsername: text('sample_username'),
+  mechanism: text('mechanism'),
+  detectedAt: integer('detected_at', { mode: 'timestamp' }).notNull(),
+});
+
+// V4 — parsed bounces correlated with RBL status.
+export const bounceEvents = sqliteTable('bounce_events', {
+  id: text('id').primaryKey(),
+  domainId: text('domain_id').notNull().references(() => domains.id, { onDelete: 'cascade' }),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+  originalTo: text('original_to').notNull(),
+  recipientDomain: text('recipient_domain').notNull(),
+  bounceType: text('bounce_type', { enum: ['hard', 'soft', 'policy'] }).notNull(),
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  remoteMTA: text('remote_mta'),
+  relatedRBL: text('related_rbl'),
+  severity: text('severity', { enum: ['info', 'warning', 'critical'] }).default('info'),
+  acknowledged: integer('acknowledged', { mode: 'boolean' }).default(false),
+});
+
+// V4 — per-recipient-domain delivery stats rollups.
+export const recipientDomainStats = sqliteTable('recipient_domain_stats', {
+  id: text('id').primaryKey(),
+  domainId: text('domain_id').notNull().references(() => domains.id, { onDelete: 'cascade' }),
+  serverIntegrationId: text('server_integration_id').references(() => serverIntegrations.id, { onDelete: 'set null' }),
+  recipientDomain: text('recipient_domain').notNull(),
+  period: text('period', { enum: ['1h', '24h', '7d', '30d'] }).notNull(),
+  sent: integer('sent').notNull().default(0),
+  delivered: integer('delivered').notNull().default(0),
+  bounced: integer('bounced').notNull().default(0),
+  deferred: integer('deferred').notNull().default(0),
+  deliveryRate: integer('delivery_rate'),         // 0-1000 (×10 for one decimal)
+  avgDelayMs: integer('avg_delay_ms'),
+  lastBounceReason: text('last_bounce_reason'),
+  recordedAt: integer('recorded_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Mail events ingested from Stalwart / Mailcow / other MTAs.
 export const mailEvents = sqliteTable('mail_events', {
   id: text('id').primaryKey(),

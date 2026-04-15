@@ -159,11 +159,20 @@ export function Sidebar() {
 
   const domains = trpc.domains.list.useQuery(undefined, { enabled: !!session });
   const activeAlerts = trpc.alerts.history.useQuery({ onlyActive: true }, { enabled: !!session });
+  const activeDelists = trpc.delist.active.useQuery(undefined, { enabled: !!session });
 
   const domainCount = domains.data?.length ?? 0;
   const activeAlertCount = activeAlerts.data?.length ?? 0;
-  // Red badge if any active blacklist alert
-  const blacklistActive = (activeAlerts.data ?? []).some((a) => a.type === 'blacklist_listed');
+  const activeDelistCount = activeDelists.data?.length ?? 0;
+  // Badge: count of active delist requests; fall back to "!" if a blacklist
+  // alert fired but no delist request has been opened yet.
+  const blacklistListed = (activeAlerts.data ?? []).some((a) => a.type === 'blacklist_listed');
+  const blacklistBadge =
+    activeDelistCount > 0
+      ? { text: String(activeDelistCount), variant: 'red' as const }
+      : blacklistListed
+      ? { text: '!', variant: 'red' as const }
+      : undefined;
 
   const nav: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -183,7 +192,7 @@ export function Sidebar() {
         },
         {
           label: 'Blacklists', href: '/blacklists', icon: IconShield,
-          badge: blacklistActive ? { text: '!', variant: 'red' } : undefined,
+          badge: blacklistBadge,
           matches: /^\/blacklists/,
         },
         {

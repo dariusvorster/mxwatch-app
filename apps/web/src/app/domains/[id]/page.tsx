@@ -21,6 +21,8 @@ import { PillTabs, PillTabsList, PillTabsTrigger, PillTabsContent, PillTabsActiv
 import { DomainOverview } from '@/components/domain-overview';
 import { DomainLogsTab } from '@/components/domain-logs-tab';
 import { DomainIntegrationsWidget } from '@/components/domain-integrations-widget';
+import { DelistWizard } from '@/components/delist-wizard';
+import { rblKeyForDisplayName } from '@mxwatch/monitor';
 import { useState } from 'react';
 
 export default function DomainDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -236,9 +238,22 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
                         <span className="font-mono text-xs">{r.ipAddress} @ {new Date(r.checkedAt).toLocaleString()}</span>
                         {r.isListed ? <Badge variant="destructive">Listed</Badge> : <Badge variant="success">Clean</Badge>}
                       </div>
-                      {r.isListed && listed.map((name) => (
-                        <BlacklistFixThis key={name} name={name} ip={r.ipAddress ?? ''} />
-                      ))}
+                      {r.isListed && listed.map((name) => {
+                        const key = rblKeyForDisplayName(name);
+                        return (
+                          <div key={name} className="space-y-2">
+                            <BlacklistFixThis name={name} ip={r.ipAddress ?? ''} />
+                            {key && (
+                              <DelistWizard
+                                domainId={id}
+                                rblName={key}
+                                listedValue={r.ipAddress ?? ''}
+                                listingType="ip"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

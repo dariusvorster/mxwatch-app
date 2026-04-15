@@ -257,6 +257,30 @@ export function getRBLHost(name: string): string | null {
   return RBL_HOSTS[name] ?? null;
 }
 
+/** Maps the display names emitted by checkIpAgainstAllBlacklists
+ *  (`'Spamhaus ZEN'`, `'Barracuda BRBL'`, …) to RBL_KNOWLEDGE keys so
+ *  the UI can start a delist wizard from a display-name string. */
+const DISPLAY_NAME_TO_KEY: Record<string, string> = {
+  'Spamhaus ZEN': 'spamhaus-zen',
+  'Spamhaus PBL': 'spamhaus-zen',
+  'Spamhaus SBL': 'spamhaus-zen',
+  'Spamhaus DBL': 'spamhaus-dbl',
+  'Barracuda BRBL': 'barracuda',
+  'SORBS DUHL': 'sorbs',
+  'SORBS SPAM': 'sorbs',
+  'Invaluement ivmSIP': 'invaluement-ivmsip',
+  SpamCop: 'spamcop',
+  Spamrats: 'spamrats',
+  Mailspike: 'mailspike',
+  'SEM-BACKSCATTER': 'sem-backscatter',
+  URIBL: 'uribl',
+  'Microsoft SNDS': 'microsoft-snds',
+};
+
+export function rblKeyForDisplayName(name: string): string | null {
+  return DISPLAY_NAME_TO_KEY[name] ?? null;
+}
+
 export interface TimelineEvent {
   ts: string;
   event: string;

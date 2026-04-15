@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth-client';
 import { trpc } from '@/lib/trpc';
 import {
-  IconBell, IconMail, IconCert, IconActivity, IconSettings, IconGlobe, IconPulse,
+  IconBell, IconMail, IconCert, IconActivity, IconSettings, IconGlobe, IconPulse, IconShield,
 } from '@/components/icons';
 import type { ComponentType, SVGProps } from 'react';
 
@@ -20,6 +20,7 @@ interface Tile {
 
 const TILES: Tile[] = [
   { href: '/onboarding', title: 'Setup wizard', description: 'Re-run the guided setup: domain, architecture, integration, alerts.', icon: IconPulse },
+  { href: '/settings/security', title: 'Security', description: '2FA, sessions, API tokens, IP allowlist, password, activity log.', icon: IconShield },
   { href: '/settings/alerts', title: 'Alert channels', description: 'Email, Slack, ntfy, and webhook destinations for alerts.', icon: IconBell },
   { href: '/settings/smtp', title: 'SMTP ingest', description: 'How DMARC aggregate reports reach MxWatch.', icon: IconMail },
   { href: '/settings/google', title: 'Google Postmaster Tools', description: 'Gmail-side spam rate and IP reputation for your domains.', icon: IconCert },

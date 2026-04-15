@@ -21,6 +21,7 @@ import { bouncesRouter } from './bounces';
 import { queueRouter } from './queue';
 import { authFailuresRouter } from './auth-failures';
 import { securityRouter } from './security';
+import { logsRouter } from './logs';
 
 export const appRouter = router({
   domains: domainsRouter,
@@ -45,6 +46,7 @@ export const appRouter = router({
   queue: queueRouter,
   authFailures: authFailuresRouter,
   security: securityRouter,
+  logs: logsRouter,
 });
 
 export type AppRouter = typeof appRouter;

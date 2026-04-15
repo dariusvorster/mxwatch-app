@@ -111,6 +111,31 @@ export const delistRouter = router({
       return { ok: true };
     }),
 
+  /** Cross-domain feed of every active (not-yet-cleared/rejected) delist
+   *  request. Used by the /blacklists top-level overview panel. */
+  active: protectedProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db
+      .select({
+        id: schema.delistRequests.id,
+        domainId: schema.delistRequests.domainId,
+        domain: schema.domains.domain,
+        rblName: schema.delistRequests.rblName,
+        listedValue: schema.delistRequests.listedValue,
+        status: schema.delistRequests.status,
+        submittedAt: schema.delistRequests.submittedAt,
+        lastPolledAt: schema.delistRequests.lastPolledAt,
+        createdAt: schema.delistRequests.createdAt,
+      })
+      .from(schema.delistRequests)
+      .innerJoin(schema.domains, eq(schema.delistRequests.domainId, schema.domains.id))
+      .where(and(
+        eq(schema.delistRequests.userId, ctx.user.id),
+        inArray(schema.delistRequests.status, ['not_submitted', 'submitted', 'pending']),
+      ))
+      .orderBy(desc(schema.delistRequests.createdAt));
+    return rows;
+  }),
+
   /** Triggers an immediate poll for one user-owned request. */
   checkNow: protectedProcedure
     .input(z.object({ requestId: z.string() }))

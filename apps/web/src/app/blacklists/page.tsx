@@ -13,6 +13,7 @@ export default function BlacklistsPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const overview = trpc.activity.blacklistOverview.useQuery(undefined, { enabled: !!session });
+  const active = trpc.delist.active.useQuery(undefined, { enabled: !!session });
   const utils = trpc.useUtils();
   const runCheck = trpc.checks.runBlacklist.useMutation({
     onSuccess: () => utils.activity.blacklistOverview.invalidate(),
@@ -107,6 +108,70 @@ export default function BlacklistsPage() {
           </table>
         )}
       </div>
+
+      {(active.data ?? []).length > 0 && (
+        <div
+          style={{
+            background: 'var(--surf)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600 }}>
+            Active delist requests
+            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>
+              across all your domains
+            </span>
+          </div>
+          <table style={{ width: '100%', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={headCell}>Domain</th>
+                <th style={headCell}>RBL</th>
+                <th style={headCell}>Listed value</th>
+                <th style={headCell}>Status</th>
+                <th style={headCell}>Last polled</th>
+                <th style={{ ...headCell, textAlign: 'right' }}>Open</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(active.data ?? []).map((r) => (
+                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={bodyCell}>
+                    <Link href={`/domains/${r.domainId}`} style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>
+                      {r.domain}
+                    </Link>
+                  </td>
+                  <td style={{ ...bodyCell, fontFamily: 'var(--mono)', fontSize: 12 }}>{r.rblName}</td>
+                  <td style={{ ...bodyCell, fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)' }}>
+                    {r.listedValue}
+                  </td>
+                  <td style={bodyCell}>
+                    <StatusBadge
+                      tone={
+                        r.status === 'pending'
+                          ? 'warning'
+                          : r.status === 'submitted'
+                          ? 'info'
+                          : 'neutral'
+                      }
+                    >
+                      {r.status.replace('_', ' ')}
+                    </StatusBadge>
+                  </td>
+                  <td style={{ ...bodyCell, fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>
+                    {r.lastPolledAt ? relativeTime(r.lastPolledAt) : '—'}
+                  </td>
+                  <td style={{ ...bodyCell, textAlign: 'right' }}>
+                    <Link href={`/domains/${r.domainId}?tab=blacklists`} style={linkBtn}>Open</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

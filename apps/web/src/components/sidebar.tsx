@@ -182,6 +182,7 @@ export function Sidebar() {
         { label: 'Mail servers', href: '/servers', icon: IconPulse, matches: /^\/servers/ },
         { label: 'Delivery rates', href: '/delivery-rates', icon: IconActivity, matches: /^\/delivery-rates/ },
         { label: 'Bounces', href: '/bounces', icon: IconMail, matches: /^\/bounces/ },
+        { label: 'IP reputation', href: '/ip-reputation', icon: IconShield, matches: /^\/ip-reputation/ },
       ],
     },
     {

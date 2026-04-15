@@ -24,6 +24,44 @@ function parseListed(listedOn: string | null): string[] {
 }
 
 export const ipReputationRouter = router({
+  /** Cross-domain summary — latest reputation per owned domain, sorted with
+   * problem domains first. Backs the top-level /ip-reputation page. */
+  summary: protectedProcedure.query(async ({ ctx }) => {
+    const owned = await ctx.db
+      .select({ id: schema.domains.id, domain: schema.domains.domain })
+      .from(schema.domains)
+      .where(eq(schema.domains.userId, ctx.user.id));
+    if (owned.length === 0) return [];
+    const out: Array<{
+      domainId: string;
+      domain: string;
+      ip: string | null;
+      score: number | null;
+      listedCount: number;
+      listedOn: string[];
+      checkedAt: Date | null;
+    }> = [];
+    for (const d of owned) {
+      const [latest] = await ctx.db
+        .select()
+        .from(schema.blacklistChecks)
+        .where(eq(schema.blacklistChecks.domainId, d.id))
+        .orderBy(desc(schema.blacklistChecks.checkedAt))
+        .limit(1);
+      const listed = latest ? parseListed(latest.listedOn) : [];
+      out.push({
+        domainId: d.id,
+        domain: d.domain,
+        ip: latest?.ipAddress ?? null,
+        score: latest ? scoreFor(listed.length) : null,
+        listedCount: listed.length,
+        listedOn: listed,
+        checkedAt: latest?.checkedAt ?? null,
+      });
+    }
+    return out.sort((a, b) => b.listedCount - a.listedCount || (a.score ?? 100) - (b.score ?? 100));
+  }),
+
   current: protectedProcedure
     .input(z.object({ domainId: z.string() }))
     .query(async ({ ctx, input }) => {

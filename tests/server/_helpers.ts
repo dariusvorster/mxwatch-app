@@ -15,7 +15,13 @@ const SCHEMA_DDL = `
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     plan TEXT DEFAULT 'self_hosted',
-    onboarding_step INTEGER NOT NULL DEFAULT 0
+    onboarding_step INTEGER NOT NULL DEFAULT 0,
+    totp_enabled INTEGER DEFAULT 0,
+    totp_secret TEXT,
+    totp_backup_codes TEXT,
+    ip_allowlist TEXT,
+    session_expiry_days INTEGER DEFAULT 7,
+    log_level TEXT DEFAULT 'info'
   );
   CREATE TABLE domains (
     id TEXT PRIMARY KEY NOT NULL,

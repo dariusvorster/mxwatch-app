@@ -14,6 +14,77 @@ export const users = sqliteTable('users', {
   // Onboarding wizard progress. 0 = not started, 1 = domain added, 2 = architecture
   // set, 3 = server integration done/skipped, 4 = alerts set (wizard complete).
   onboardingStep: integer('onboarding_step').notNull().default(0),
+  // Security additions (Phase 1)
+  totpEnabled: integer('totp_enabled', { mode: 'boolean' }).default(false),
+  totpSecret: text('totp_secret'),
+  totpBackupCodes: text('totp_backup_codes'),
+  ipAllowlist: text('ip_allowlist'),
+  sessionExpiryDays: integer('session_expiry_days').default(7),
+  logLevel: text('log_level').default('info'),
+});
+
+// Activity log — security-relevant user actions (login, settings change, etc.)
+export const activityLog = sqliteTable('activity_log', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  action: text('action').notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  detail: text('detail'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// API tokens — account-scoped bearer tokens with named scopes + expiry +
+// per-token last-used tracking. Coexists with the older userApiTokens table
+// while we migrate consumers over.
+export const apiTokens = sqliteTable('api_tokens', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  prefix: text('prefix').notNull(),
+  scopes: text('scopes').notNull(),
+  lastUsedAt: integer('last_used_at', { mode: 'timestamp' }),
+  lastUsedIp: text('last_used_ip'),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  revokedAt: integer('revoked_at', { mode: 'timestamp' }),
+});
+
+// Structured app logs — written by the new logger from monitoring jobs,
+// tRPC handlers, and startup hooks. Indexed by category + level for the UI.
+export const appLogs = sqliteTable('app_logs', {
+  id: text('id').primaryKey(),
+  level: text('level').notNull(),
+  category: text('category').notNull(),
+  message: text('message').notNull(),
+  detail: text('detail'),
+  error: text('error'),
+  stack: text('stack'),
+  domainId: text('domain_id').references(() => domains.id, { onDelete: 'set null' }),
+  jobRunId: text('job_run_id'),
+  requestId: text('request_id'),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  ipAddress: text('ip_address'),
+  durationMs: integer('duration_ms'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Job runs — one row per scheduled-job invocation. Lets the UI surface
+// last-success / last-failure / duration trends per job + per domain.
+export const jobRuns = sqliteTable('job_runs', {
+  id: text('id').primaryKey(),
+  jobName: text('job_name').notNull(),
+  domainId: text('domain_id').references(() => domains.id, { onDelete: 'set null' }),
+  status: text('status').notNull(),
+  startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  durationMs: integer('duration_ms'),
+  itemsProcessed: integer('items_processed').default(0),
+  itemsSucceeded: integer('items_succeeded').default(0),
+  itemsFailed: integer('items_failed').default(0),
+  errorMessage: text('error_message'),
+  detail: text('detail'),
 });
 
 // better-auth sessions

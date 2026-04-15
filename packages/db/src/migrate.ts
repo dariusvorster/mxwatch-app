@@ -30,6 +30,15 @@ export function applyPendingMigrations(dbUrl: string): void {
       console.log('[migrate] added users.onboarding_step column');
     }
 
+    // Phase-1 security columns on users (TOTP, IP allowlist, session expiry,
+    // log level). Idempotent.
+    addColumn('users', 'totp_enabled', `INTEGER DEFAULT 0`);
+    addColumn('users', 'totp_secret', `TEXT`);
+    addColumn('users', 'totp_backup_codes', `TEXT`);
+    addColumn('users', 'ip_allowlist', `TEXT`);
+    addColumn('users', 'session_expiry_days', `INTEGER DEFAULT 7`);
+    addColumn('users', 'log_level', `TEXT DEFAULT 'info'`);
+
     // V3.5 topology columns — defensive: add if missing on older DBs.
     addColumn('domains', 'architecture', `TEXT DEFAULT 'direct'`);
     addColumn('domains', 'sending_ips', `TEXT`);
@@ -96,6 +105,63 @@ export function applyPendingMigrations(dbUrl: string): void {
         severity TEXT DEFAULT 'info',
         acknowledged INTEGER DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        detail TEXT,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        prefix TEXT NOT NULL,
+        scopes TEXT NOT NULL,
+        last_used_at INTEGER,
+        last_used_ip TEXT,
+        expires_at INTEGER,
+        created_at INTEGER NOT NULL,
+        revoked_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS app_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        level TEXT NOT NULL,
+        category TEXT NOT NULL,
+        message TEXT NOT NULL,
+        detail TEXT,
+        error TEXT,
+        stack TEXT,
+        domain_id TEXT REFERENCES domains(id) ON DELETE SET NULL,
+        job_run_id TEXT,
+        request_id TEXT,
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        ip_address TEXT,
+        duration_ms INTEGER,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON app_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_app_logs_category ON app_logs(category);
+      CREATE INDEX IF NOT EXISTS idx_app_logs_level ON app_logs(level);
+      CREATE TABLE IF NOT EXISTS job_runs (
+        id TEXT PRIMARY KEY NOT NULL,
+        job_name TEXT NOT NULL,
+        domain_id TEXT REFERENCES domains(id) ON DELETE SET NULL,
+        status TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        items_processed INTEGER DEFAULT 0,
+        items_succeeded INTEGER DEFAULT 0,
+        items_failed INTEGER DEFAULT 0,
+        error_message TEXT,
+        detail TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_job_runs_started_at ON job_runs(started_at);
+      CREATE INDEX IF NOT EXISTS idx_job_runs_job_name ON job_runs(job_name);
       CREATE TABLE IF NOT EXISTS recipient_domain_stats (
         id TEXT PRIMARY KEY NOT NULL,
         domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,

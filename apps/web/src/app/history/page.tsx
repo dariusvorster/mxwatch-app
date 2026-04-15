@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
@@ -15,20 +15,58 @@ function severityTone(sev: string | undefined): 'critical' | 'warning' | 'info' 
   return 'neutral';
 }
 
+type FilterKey = 'all' | 'alerts' | 'dns' | 'blacklist' | 'dmarc';
+
+const FILTER_TYPES: Record<FilterKey, string[]> = {
+  all: [],
+  alerts: ['alert_fired', 'alert_resolved'],
+  dns: ['dns_snapshot'],
+  blacklist: ['rbl_check'],
+  dmarc: ['dmarc_report'],
+};
+
 export default function HistoryPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const feed = trpc.activity.feed.useQuery({ limit: 300 }, { enabled: !!session });
+  const [filter, setFilter] = useState<FilterKey>('all');
 
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
   }, [isPending, session, router]);
+
+  const rows = useMemo(() => {
+    const list = feed.data ?? [];
+    if (filter === 'all') return list;
+    const allowed = new Set(FILTER_TYPES[filter]);
+    return list.filter((ev: any) => allowed.has(ev.type));
+  }, [feed.data, filter]);
 
   if (isPending || !session) return <div>Loading…</div>;
 
   return (
     <div className="space-y-5" style={{ maxWidth: 900 }}>
       <PageHeader title="History" subtitle="Long-tail view of every check, report, and alert across your domains." />
+
+      <div style={{ display: 'flex', gap: 4, background: 'var(--bg2)', padding: 3, borderRadius: 999, width: 'fit-content' }}>
+        {(['all', 'alerts', 'dns', 'blacklist', 'dmarc'] as FilterKey[]).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            style={{
+              fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 500,
+              padding: '5px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+              background: filter === f ? 'var(--surf)' : 'transparent',
+              color: filter === f ? 'var(--text)' : 'var(--text3)',
+              boxShadow: filter === f ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+            }}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
       <div
         style={{
           background: 'var(--surf)',
@@ -39,10 +77,12 @@ export default function HistoryPage() {
       >
         {feed.isLoading ? (
           <div style={{ padding: 16, fontSize: 13, color: 'var(--text3)' }}>Loading…</div>
-        ) : !feed.data || feed.data.length === 0 ? (
-          <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>Nothing yet.</div>
+        ) : rows.length === 0 ? (
+          <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>
+            {filter === 'all' ? 'Nothing yet.' : 'No events match this filter.'}
+          </div>
         ) : (
-          feed.data.map((ev, i) => (
+          rows.map((ev, i) => (
             <div
               key={ev.id}
               style={{

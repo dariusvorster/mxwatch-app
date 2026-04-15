@@ -80,6 +80,16 @@ export interface RecipientDomainStat {
   lastBounceReason?: string;
 }
 
+export interface RelayInboxSetupResult {
+  ok: boolean;
+  /** `mxwatch-test-*@<domain>` — the wildcard that Mx will receive at. */
+  catchallAddressPattern: string;
+  /** Non-null when automatic setup failed and the user must finish
+   *  configuration in the provider's dashboard. */
+  setupInstructions?: string | null;
+  message: string;
+}
+
 export interface MailServerAdapter {
   readonly type: MailServerType;
   readonly displayName: string;
@@ -89,6 +99,16 @@ export interface MailServerAdapter {
   getDeliveryEvents(config: AdapterConfig, since: Date, limit: number): Promise<DeliveryEvent[]>;
   getAuthFailures(config: AdapterConfig, since: Date): Promise<AuthFailureEvent[]>;
   getRecipientDomainStats(config: AdapterConfig, since: Date): Promise<RecipientDomainStat[]>;
+
+  /** Optional: create the provider-side route / inbound parse config that
+   *  forwards `mxwatch-test-*@<domain>` to the webhook URL. Adapters that
+   *  don't support inbound routing omit this method. */
+  setupRelayInbox?(params: {
+    config: AdapterConfig;
+    webhookUrl: string;
+    webhookSecret: string;
+    inboundDomain: string;
+  }): Promise<RelayInboxSetupResult>;
 }
 
 /**

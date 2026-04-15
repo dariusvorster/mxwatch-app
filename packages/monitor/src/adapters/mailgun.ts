@@ -1,6 +1,7 @@
 import type {
   AdapterConfig, AdapterTestResult, AuthFailureEvent, DeliveryEvent,
-  MailServerAdapter, QueueStats, RecipientDomainStat, ServerStats,
+  MailServerAdapter, QueueStats, RecipientDomainStat, RelayInboxSetupResult,
+  ServerStats,
 } from './types';
 import { AdapterUnsupportedError } from './types';
 
@@ -95,6 +96,47 @@ export class MailgunAdapter implements MailServerAdapter {
   }
   async getRecipientDomainStats(): Promise<RecipientDomainStat[]> {
     throw new AdapterUnsupportedError('MailgunAdapter', 'getRecipientDomainStats');
+  }
+
+  async setupRelayInbox(params: {
+    config: AdapterConfig;
+    webhookUrl: string;
+    webhookSecret: string;
+    inboundDomain: string;
+  }): Promise<RelayInboxSetupResult> {
+    const pattern = `mxwatch-test-*@${params.inboundDomain}`;
+    try {
+      const res = await fetch(`${this.base(params.config)}/v3/routes`, {
+        method: 'POST',
+        headers: {
+          ...this.headers(params.config),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          priority: '0',
+          description: 'MxWatch deliverability test relay',
+          expression: `match_recipient("mxwatch-test-.*@${params.inboundDomain}")`,
+          action: `forward("${params.webhookUrl}")`,
+          action2: 'stop()',
+        }),
+      });
+      if (!res.ok) {
+        return {
+          ok: false, catchallAddressPattern: pattern,
+          setupInstructions:
+            `Mailgun /v3/routes returned ${res.status}. Create a route manually: ` +
+            `match_recipient("mxwatch-test-.*@${params.inboundDomain}") → forward("${params.webhookUrl}")`,
+          message: `Mailgun ${res.status}`,
+        };
+      }
+      return { ok: true, catchallAddressPattern: pattern, message: 'Route created on Mailgun.' };
+    } catch (e: any) {
+      return {
+        ok: false, catchallAddressPattern: pattern,
+        setupInstructions: `Network error — create the route manually in the Mailgun dashboard.`,
+        message: e?.message ?? 'Network error',
+      };
+    }
   }
 }
 

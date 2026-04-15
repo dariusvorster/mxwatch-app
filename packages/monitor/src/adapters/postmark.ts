@@ -1,6 +1,7 @@
 import type {
   AdapterConfig, AdapterTestResult, AuthFailureEvent, DeliveryEvent,
-  MailServerAdapter, QueueStats, RecipientDomainStat, ServerStats,
+  MailServerAdapter, QueueStats, RecipientDomainStat, RelayInboxSetupResult,
+  ServerStats,
 } from './types';
 import { AdapterUnsupportedError } from './types';
 
@@ -80,5 +81,52 @@ export class PostmarkAdapter implements MailServerAdapter {
   }
   async getRecipientDomainStats(): Promise<RecipientDomainStat[]> {
     throw new AdapterUnsupportedError('PostmarkAdapter', 'getRecipientDomainStats');
+  }
+
+  async setupRelayInbox(params: {
+    config: AdapterConfig;
+    webhookUrl: string;
+    webhookSecret: string;
+    inboundDomain: string;
+  }): Promise<RelayInboxSetupResult> {
+    // Postmark inbound auth is Basic-auth in the webhook URL. We pass the
+    // webhookSecret through as the HttpAuth password. This uses the server
+    // token — Postmark's Account Token would be needed for /webhooks
+    // calls; detecting that requires user input so we document rather than
+    // attempt full automation.
+    const pattern = `mxwatch-test-*@${params.inboundDomain}`;
+    try {
+      const res = await fetch('https://api.postmarkapp.com/webhooks', {
+        method: 'POST',
+        headers: {
+          'X-Postmark-Account-Token': params.config.apiToken,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          Url: params.webhookUrl,
+          MessageStream: 'inbound',
+          HttpAuth: { Username: 'mxwatch', Password: params.webhookSecret },
+          Triggers: { InboundEmail: { Enabled: true } },
+        }),
+      });
+      if (!res.ok) {
+        return {
+          ok: false, catchallAddressPattern: pattern,
+          setupInstructions:
+            `Postmark API rejected the call (${res.status}) — likely a Server Token where an Account Token is needed. ` +
+            `In the Postmark dashboard: Servers → Your Inbound Stream → set Inbound Webhook URL to ${params.webhookUrl} ` +
+            `with Basic auth user=mxwatch, password=${params.webhookSecret}.`,
+          message: `Postmark ${res.status}`,
+        };
+      }
+      return { ok: true, catchallAddressPattern: pattern, message: 'Inbound webhook registered on Postmark.' };
+    } catch (e: any) {
+      return {
+        ok: false, catchallAddressPattern: pattern,
+        setupInstructions: `Network error — register the Inbound webhook manually in the Postmark dashboard.`,
+        message: e?.message ?? 'Network error',
+      };
+    }
   }
 }

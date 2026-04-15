@@ -1,10 +1,15 @@
 import { z } from 'zod';
+import crypto from 'node:crypto';
 import { router, protectedProcedure } from '../trpc';
 import { schema, nanoid } from '@mxwatch/db';
 import { and, desc, eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { encryptJSON, decryptJSON } from '@mxwatch/alerts';
 import { detectMailServer, getAdapter, type MailServerType } from '@mxwatch/monitor';
+
+function getAppUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+}
 
 const SERVER_TYPES = [
   'stalwart', 'mailcow', 'postfix', 'postfix_dovecot',
@@ -112,6 +117,28 @@ export const serverIntegrationsRouter = router({
       await assertOwned(ctx, input.id);
       await ctx.db.delete(schema.serverIntegrations).where(eq(schema.serverIntegrations.id, input.id));
       return { ok: true };
+    }),
+
+  /** Calls the adapter's optional setupRelayInbox() to provision a
+   *  provider-side inbound route. Resend / Postmark / Mailgun / SendGrid
+   *  implement this; others throw BAD_REQUEST. */
+  setupRelayInbox: protectedProcedure
+    .input(z.object({ id: z.string(), inboundDomain: z.string().trim().min(3).max(253) }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await assertOwned(ctx, input.id);
+      const token = row.encryptedToken ? decryptJSON<string>(row.encryptedToken) : '';
+      const adapter = getAdapter(row.serverType as MailServerType);
+      if (!adapter.setupRelayInbox) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `${row.serverType} adapter doesn't support relay inbox setup.` });
+      }
+      const webhookSecret = crypto.randomBytes(32).toString('hex');
+      const webhookUrl = `${getAppUrl()}/api/webhooks/${row.serverType}`;
+      const result = await adapter.setupRelayInbox({
+        config: { baseUrl: row.baseUrl ?? '', apiToken: token },
+        webhookUrl, webhookSecret,
+        inboundDomain: input.inboundDomain,
+      });
+      return { ...result, webhookUrl, webhookSecret };
     }),
 
   /** Calls the relevant adapter's test() method, persists status, returns result. */

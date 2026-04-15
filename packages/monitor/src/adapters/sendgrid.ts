@@ -1,6 +1,7 @@
 import type {
   AdapterConfig, AdapterTestResult, AuthFailureEvent, DeliveryEvent,
-  MailServerAdapter, QueueStats, RecipientDomainStat, ServerStats,
+  MailServerAdapter, QueueStats, RecipientDomainStat, RelayInboxSetupResult,
+  ServerStats,
 } from './types';
 import { AdapterUnsupportedError } from './types';
 
@@ -62,6 +63,44 @@ export class SendGridAdapter implements MailServerAdapter {
   }
   async getRecipientDomainStats(): Promise<RecipientDomainStat[]> {
     throw new AdapterUnsupportedError('SendGridAdapter', 'getRecipientDomainStats');
+  }
+
+  async setupRelayInbox(params: {
+    config: AdapterConfig;
+    webhookUrl: string;
+    webhookSecret: string;
+    inboundDomain: string;
+  }): Promise<RelayInboxSetupResult> {
+    const pattern = `mxwatch-test-*@${params.inboundDomain}`;
+    try {
+      const res = await fetch('https://api.sendgrid.com/v3/user/webhooks/parse/settings', {
+        method: 'POST',
+        headers: { ...this.headers(params.config), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostname: params.inboundDomain,
+          url: params.webhookUrl,
+          spam_check: false,
+          send_raw: true,
+        }),
+      });
+      if (!res.ok) {
+        return {
+          ok: false, catchallAddressPattern: pattern,
+          setupInstructions:
+            `SendGrid Inbound Parse API returned ${res.status}. Configure it manually: ` +
+            `Settings → Inbound Parse → Add host and URL → hostname ${params.inboundDomain}, ` +
+            `URL ${params.webhookUrl}, 'POST the raw, full MIME message' enabled.`,
+          message: `SendGrid ${res.status}`,
+        };
+      }
+      return { ok: true, catchallAddressPattern: pattern, message: 'Inbound Parse configured on SendGrid.' };
+    } catch (e: any) {
+      return {
+        ok: false, catchallAddressPattern: pattern,
+        setupInstructions: `Network error — configure Inbound Parse manually in the SendGrid dashboard.`,
+        message: e?.message ?? 'Network error',
+      };
+    }
   }
 }
 

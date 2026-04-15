@@ -1,6 +1,7 @@
 import type {
   AdapterConfig, AdapterTestResult, AuthFailureEvent, DeliveryEvent,
-  MailServerAdapter, QueueStats, RecipientDomainStat, ServerStats,
+  MailServerAdapter, QueueStats, RecipientDomainStat, RelayInboxSetupResult,
+  ServerStats,
 } from './types';
 import { AdapterUnsupportedError } from './types';
 
@@ -84,6 +85,47 @@ export class ResendAdapter implements MailServerAdapter {
   }
   async getRecipientDomainStats(): Promise<RecipientDomainStat[]> {
     throw new AdapterUnsupportedError('ResendAdapter', 'getRecipientDomainStats');
+  }
+
+  async setupRelayInbox(params: {
+    config: AdapterConfig;
+    webhookUrl: string;
+    webhookSecret: string;
+    inboundDomain: string;
+  }): Promise<RelayInboxSetupResult> {
+    try {
+      const res = await fetch('https://api.resend.com/inbound/routes', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${params.config.apiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain: params.inboundDomain,
+          recipient: 'mxwatch-test-*',
+          destination: params.webhookUrl,
+        }),
+      });
+      const pattern = `mxwatch-test-*@${params.inboundDomain}`;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return {
+          ok: false, catchallAddressPattern: pattern,
+          setupInstructions:
+            `Automatic setup failed (${(body as any)?.message ?? res.status}). In the Resend dashboard ` +
+            `create an Inbound Route: domain ${params.inboundDomain}, recipient mxwatch-test-*, ` +
+            `destination ${params.webhookUrl}.`,
+          message: `Resend ${res.status}`,
+        };
+      }
+      return { ok: true, catchallAddressPattern: pattern, message: 'Inbound route created on Resend.' };
+    } catch (e: any) {
+      return {
+        ok: false, catchallAddressPattern: `mxwatch-test-*@${params.inboundDomain}`,
+        setupInstructions: `Network error — create the Inbound Route manually in the Resend dashboard.`,
+        message: e?.message ?? 'Network error',
+      };
+    }
   }
 }
 

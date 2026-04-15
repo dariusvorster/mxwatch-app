@@ -41,6 +41,11 @@ export function applyPendingMigrations(dbUrl: string): void {
     // Phase 3b — better-auth twoFactor plugin
     addColumn('users', 'two_factor_enabled', `INTEGER DEFAULT 0`);
 
+    // Self-hosted deliverability inbox — extra columns on the existing
+    // deliverability_tests table.
+    addColumn('deliverability_tests', 'inbox_mode', `TEXT DEFAULT 'cloud'`);
+    addColumn('deliverability_tests', 'analysis_source', `TEXT DEFAULT 'headers'`);
+
     // V3.5 topology columns — defensive: add if missing on older DBs.
     addColumn('domains', 'architecture', `TEXT DEFAULT 'direct'`);
     addColumn('domains', 'sending_ips', `TEXT`);
@@ -106,6 +111,39 @@ export function applyPendingMigrations(dbUrl: string): void {
         related_rbl TEXT,
         severity TEXT DEFAULT 'info',
         acknowledged INTEGER DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS deliverability_tests (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        domain_id TEXT REFERENCES domains(id) ON DELETE SET NULL,
+        test_address TEXT NOT NULL UNIQUE,
+        sending_mode TEXT NOT NULL DEFAULT 'manual',
+        status TEXT NOT NULL DEFAULT 'pending',
+        score INTEGER,
+        results TEXT,
+        raw_headers TEXT,
+        from_address TEXT,
+        source_ip TEXT,
+        subject TEXT,
+        received_at INTEGER,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        inbox_mode TEXT DEFAULT 'cloud',
+        analysis_source TEXT DEFAULT 'headers'
+      );
+      CREATE TABLE IF NOT EXISTS deliverability_inbox_config (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        mode TEXT NOT NULL,
+        inbox_domain TEXT,
+        stalwart_integration_id TEXT REFERENCES stalwart_integrations(id) ON DELETE SET NULL,
+        stalwart_catchall_address TEXT,
+        webhook_secret TEXT,
+        verified INTEGER DEFAULT 0,
+        verified_at INTEGER,
+        setup_step INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS two_factor (
         id TEXT PRIMARY KEY NOT NULL,

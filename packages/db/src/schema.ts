@@ -348,6 +348,12 @@ export const deliverabilityTests = sqliteTable('deliverability_tests', {
   domainId: text('domain_id').references(() => domains.id, { onDelete: 'set null' }),
   testAddress: text('test_address').notNull().unique(), // full address, e.g. test-abc123@mxwatch.example.com
   sendingMode: text('sending_mode', { enum: ['manual', 'resend'] }).notNull().default('manual'),
+  // Self-hosted deliverability inbox modes. `cloud` = the legacy
+  // *@inbox.mxwatch.app flow; other values match deliverabilityInboxConfig.mode.
+  inboxMode: text('inbox_mode', { enum: ['own_domain', 'stalwart_relay', 'manual', 'cloud'] }).default('cloud'),
+  // Where the analyser got its input from — useful when correlating score
+  // regressions to an ingestion-path change.
+  analysisSource: text('analysis_source', { enum: ['headers', 'manual_paste'] }).default('headers'),
   status: text('status', { enum: ['pending', 'received', 'analyzed', 'expired'] }).notNull().default('pending'),
   score: integer('score'), // 0-100 (stored as 10x to avoid floats)
   results: text('results'), // JSON: per-check breakdown
@@ -358,6 +364,32 @@ export const deliverabilityTests = sqliteTable('deliverability_tests', {
   receivedAt: integer('received_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Per-user config for the self-hosted deliverability-inbox modes. One row
+// per user; null for users who've never opened the inbox setup wizard.
+export const deliverabilityInboxConfig = sqliteTable('deliverability_inbox_config', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  mode: text('mode', { enum: ['own_domain', 'stalwart_relay', 'manual', 'cloud'] }).notNull(),
+
+  // Mode 1 — own-domain: MxWatch SMTP listener accepts *@inboxDomain.
+  inboxDomain: text('inbox_domain'),
+
+  // Mode 2 — Stalwart relay: MxWatch creates a catchall route on the user's
+  // Stalwart instance; Stalwart forwards to /api/webhooks/deliverability.
+  stalwartIntegrationId: text('stalwart_integration_id').references(() => stalwartIntegrations.id, { onDelete: 'set null' }),
+  stalwartCatchallAddress: text('stalwart_catchall_address'),
+  webhookSecret: text('webhook_secret'),
+
+  // Wizard progress. 0 = not started, 1 = mode selected, 2 = configured,
+  // 3 = verified.
+  verified: integer('verified', { mode: 'boolean' }).default(false),
+  verifiedAt: integer('verified_at', { mode: 'timestamp' }),
+  setupStep: integer('setup_step').default(0),
+
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
 // build sender reputation gradually without tripping spam filters.

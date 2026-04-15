@@ -1182,9 +1182,32 @@ function SummaryStat({ label, value }: { label: string; value: string | number }
 }
 
 function Field({ label, value }: { label: string; value?: string | null }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    if (!value) return;
+    void navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
   return (
     <div>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        {value && (
+          <button
+            type="button"
+            onClick={copy}
+            style={{
+              fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600,
+              padding: '2px 8px', borderRadius: 4,
+              background: 'transparent', color: copied ? 'var(--green)' : 'var(--text3)',
+              border: '1px solid var(--border2)', cursor: 'pointer',
+            }}
+          >
+            {copied ? 'Copied ✓' : 'Copy'}
+          </button>
+        )}
+      </div>
       <pre className="mt-1 whitespace-pre-wrap break-all rounded border border-border bg-muted/50 p-2 text-xs">{value || '—'}</pre>
     </div>
   );

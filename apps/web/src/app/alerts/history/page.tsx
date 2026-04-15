@@ -45,6 +45,7 @@ export default function AlertsHistoryPage() {
         subtitle="Every alert fired across your domains, with quick resolve actions."
       />
 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
       <div style={{ display: 'flex', gap: 4, background: 'var(--bg2)', padding: 3, borderRadius: 999, width: 'fit-content' }}>
         {(['all', 'active', 'resolved'] as const).map((f) => (
           <button
@@ -67,6 +68,22 @@ export default function AlertsHistoryPage() {
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
+      </div>
+        <button
+          type="button"
+          onClick={() => exportCsv(rows)}
+          disabled={rows.length === 0}
+          style={{
+            fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'transparent', color: 'var(--text2)',
+            border: '1px solid var(--border2)',
+            cursor: rows.length === 0 ? 'not-allowed' : 'pointer',
+            opacity: rows.length === 0 ? 0.5 : 1,
+          }}
+        >
+          Download CSV
+        </button>
       </div>
 
       <div
@@ -135,6 +152,40 @@ export default function AlertsHistoryPage() {
       </div>
     </div>
   );
+}
+
+function csvEscape(v: string): string {
+  if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function exportCsv(rows: Array<{
+  id: string;
+  domainName: string;
+  type: string;
+  message: string;
+  firedAt: Date | string;
+  resolvedAt: Date | string | null;
+}>) {
+  const header = ['id', 'domain', 'type', 'firedAt', 'resolvedAt', 'message'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push([
+      r.id,
+      r.domainName,
+      r.type,
+      new Date(r.firedAt).toISOString(),
+      r.resolvedAt ? new Date(r.resolvedAt).toISOString() : '',
+      r.message,
+    ].map(csvEscape).join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mxwatch-alert-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 const resolveBtn: React.CSSProperties = {

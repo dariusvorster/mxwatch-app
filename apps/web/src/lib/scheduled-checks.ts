@@ -32,16 +32,22 @@ export async function runAllBlacklistChecks(): Promise<void> {
   const activeDomains = await db
     .select()
     .from(schema.domains)
-    .where(and(eq(schema.domains.isActive, true), isNotNull(schema.domains.sendingIp)));
+    .where(eq(schema.domains.isActive, true));
 
+  const { getSendingIps } = await import('./domain-topology');
   for (const d of activeDomains) {
-    if (!d.sendingIp) continue;
-    try {
-      await runBlacklistCheckForDomain(d.id, d.sendingIp);
-      await evaluateAlertsForDomain(d.id, 'blacklist');
-    } catch (e) {
-      console.error(`[scheduled-checks] blacklist ${d.domain} (${d.sendingIp}) failed`, e);
+    const ips = getSendingIps(d);
+    if (ips.length === 0) continue;
+    for (const ip of ips) {
+      try {
+        await runBlacklistCheckForDomain(d.id, ip);
+      } catch (e) {
+        console.error(`[scheduled-checks] blacklist ${d.domain} (${ip}) failed`, e);
+      }
     }
+    // Evaluate once per domain after all IPs are checked
+    try { await evaluateAlertsForDomain(d.id, 'blacklist'); }
+    catch (e) { console.error(`[scheduled-checks] blacklist alert eval ${d.domain} failed`, e); }
   }
 }
 

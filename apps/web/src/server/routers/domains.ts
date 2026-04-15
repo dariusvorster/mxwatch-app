@@ -9,6 +9,29 @@ import { sql } from 'drizzle-orm';
 
 const domainRegex = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
 
+/**
+ * Accepts either the bare selector (`mail`, `202603e`) or the full DNS name
+ * (`mail._domainkey.example.com`, `202603e._domainkey.homelabza.com`) and
+ * normalises to the bare selector. The DNS lookup code will append
+ * `._domainkey.<domain>` itself.
+ */
+const selectorSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(253)
+  .transform((s) => {
+    const idx = s.toLowerCase().indexOf('._domainkey');
+    return idx >= 0 ? s.slice(0, idx) : s;
+  })
+  .pipe(
+    z
+      .string()
+      .min(1, 'Empty selector')
+      .max(64)
+      .regex(/^[a-z0-9_-]+$/i, 'Only letters, digits, _ and - allowed'),
+  );
+
 export const domainsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db
@@ -35,7 +58,7 @@ export const domainsRouter = router({
     .input(z.object({
       domain: z.string().trim().toLowerCase().regex(domainRegex, 'Invalid domain'),
       notes: z.string().max(500).optional(),
-      dkimSelector: z.string().trim().min(1).max(64).optional(),
+      dkimSelector: selectorSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const id = nanoid();
@@ -97,7 +120,7 @@ export const domainsRouter = router({
   addSelector: protectedProcedure
     .input(z.object({
       domainId: z.string(),
-      selector: z.string().trim().min(1).max(64).regex(/^[a-z0-9_-]+$/i, 'Only letters, digits, _ and - allowed'),
+      selector: selectorSchema,
     }))
     .mutation(async ({ ctx, input }) => {
       const [owned] = await ctx.db
@@ -125,6 +148,40 @@ export const domainsRouter = router({
         addedAt: new Date(),
       });
       return { id };
+    }),
+
+  setTopology: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      architecture: z.enum(['direct', 'nat_relay', 'split', 'managed']),
+      sendingIps: z.array(z.union([z.string().ip(), z.string().min(1)])).max(16).default([]),
+      smtpCheckHost: z.string().trim().max(253).nullable().optional(),
+      relayHost: z.string().trim().max(253).nullable().optional(),
+      internalHost: z.string().trim().max(253).nullable().optional(),
+      outboundProvider: z.enum(['resend', 'sendgrid', 'postmark', 'custom']).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db
+        .select()
+        .from(schema.domains)
+        .where(and(eq(schema.domains.id, input.id), eq(schema.domains.userId, ctx.user.id)))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: 'NOT_FOUND' });
+      const norm = (v: string | null | undefined) => (v && v.length > 0 ? v : null);
+      await ctx.db
+        .update(schema.domains)
+        .set({
+          architecture: input.architecture,
+          sendingIps: JSON.stringify(input.sendingIps),
+          // Legacy single-IP mirror so old code paths keep working.
+          sendingIp: input.sendingIps[0] ?? null,
+          smtpCheckHost: norm(input.smtpCheckHost ?? null),
+          relayHost: norm(input.relayHost ?? null),
+          internalHost: norm(input.internalHost ?? null),
+          outboundProvider: input.outboundProvider ?? null,
+        })
+        .where(eq(schema.domains.id, input.id));
+      return { ok: true };
     }),
 
   setSendingIp: protectedProcedure

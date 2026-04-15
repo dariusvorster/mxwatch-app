@@ -60,7 +60,18 @@ export const domains = sqliteTable('domains', {
   addedAt: integer('added_at', { mode: 'timestamp' }).notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   notes: text('notes'),
+  // Legacy single-IP field. New code reads `sendingIps` (JSON array) first and
+  // falls back to this when the array is empty. Scheduled to be removed in a
+  // future cleanup.
   sendingIp: text('sending_ip'),
+  // Network topology — lets users describe NAT relays, split sending, and
+  // fully-managed provider setups.
+  architecture: text('architecture', { enum: ['direct', 'nat_relay', 'split', 'managed'] }).default('direct'),
+  sendingIps: text('sending_ips'),              // JSON string[] — all IPs we should RBL-check
+  smtpCheckHost: text('smtp_check_host'),       // host the outbound SMTP probe connects to
+  relayHost: text('relay_host'),                // VPS / relay hostname or IP (nat_relay)
+  internalHost: text('internal_host'),          // internal mail server IP (nat_relay)
+  outboundProvider: text('outbound_provider', { enum: ['resend', 'sendgrid', 'postmark', 'custom'] }),
 });
 
 // DNS record snapshots

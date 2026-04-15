@@ -14,6 +14,8 @@ import { FixThis, BlacklistFixThis } from '@/components/fix-this';
 import { PostmasterCard } from '@/components/postmaster-card';
 import { DnsPropagationCard } from '@/components/dns-propagation-card';
 import { IpReputationCard } from '@/components/ip-reputation-card';
+import { copyToClipboard } from '@/lib/clipboard';
+import { DomainTopologyCard } from '@/components/domain-topology-card';
 import { DomainHeader } from '@/components/domain-header';
 import { PillTabs, PillTabsList, PillTabsTrigger, PillTabsContent, PillTabsActiveStyle } from '@/components/pill-tabs';
 import { DomainOverview } from '@/components/domain-overview';
@@ -281,7 +283,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
 
         <PillTabsContent value="smtp">
           <div className="space-y-4">
-            <SendingIpCard domainId={id} currentIp={domain.data.sendingIp ?? null} />
+            <DomainTopologyCard domain={domain.data} />
             <Card>
               <CardHeader><CardTitle>Inbound SMTP listener</CardTitle></CardHeader>
               <CardContent className="text-sm text-muted-foreground">
@@ -537,11 +539,10 @@ function MailLogTokensCard({ domainId }: { domainId: string }) {
 
   async function copyToken() {
     if (!newPlaintext) return;
-    try {
-      await navigator.clipboard.writeText(newPlaintext);
+    if (await copyToClipboard(newPlaintext)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {}
+    }
   }
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';

@@ -27,9 +27,20 @@ export async function checkSpf(domain: string): Promise<SpfResult> {
   }
 }
 
+/**
+ * Strips `._domainkey.<anything>` from the selector so callers can pass either
+ * `mail` or `mail._domainkey.example.com` and we construct a single, correct
+ * DNS name for the TXT lookup.
+ */
+export function normalizeDkimSelector(selector: string): string {
+  const idx = selector.toLowerCase().indexOf('._domainkey');
+  return idx >= 0 ? selector.slice(0, idx) : selector;
+}
+
 export async function checkDkim(domain: string, selector: string): Promise<DkimResult> {
+  const bare = normalizeDkimSelector(selector);
   try {
-    const txt = await dns.promises.resolveTxt(`${selector}._domainkey.${domain}`);
+    const txt = await dns.promises.resolveTxt(`${bare}._domainkey.${domain}`);
     const record = txt.flat().join('');
     const issues: string[] = [];
     if (record.includes('k=rsa') && !record.includes('p=')) issues.push('DKIM public key missing');
@@ -39,9 +50,9 @@ export async function checkDkim(domain: string, selector: string): Promise<DkimR
       if (keyLength < 1024) issues.push(`DKIM key too short (${keyLength} bits, minimum 1024)`);
       else if (keyLength < 2048) issues.push(`DKIM key should be 2048 bits (currently ${keyLength})`);
     }
-    return { selector, valid: issues.length === 0, record, issues };
+    return { selector: bare, valid: issues.length === 0, record, issues };
   } catch {
-    return { selector, valid: false, record: null, issues: [`DKIM selector '${selector}' not found`] };
+    return { selector: bare, valid: false, record: null, issues: [`DKIM selector '${bare}' not found`] };
   }
 }
 

@@ -12,10 +12,11 @@ import {
   type SpfComponent, type SpfPolicy, type DmarcPolicy,
 } from '@mxwatch/monitor/record-builder';
 
+import { copyToClipboard } from '@/lib/clipboard';
 function CopyBlock({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+    if (await copyToClipboard(text)) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
   }
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>

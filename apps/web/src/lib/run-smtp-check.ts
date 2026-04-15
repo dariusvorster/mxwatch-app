@@ -1,6 +1,7 @@
 import { getDb, schema, nanoid } from '@mxwatch/db';
 import { checkSmtp } from '@mxwatch/monitor';
 import { desc, eq } from 'drizzle-orm';
+import { getSmtpCheckHost, smtpCheckDisabled } from './domain-topology';
 
 /** Returns the primary MX host for a domain from its latest DNS snapshot. */
 async function firstMxHost(domainId: string): Promise<string | null> {
@@ -24,7 +25,10 @@ export async function runSmtpCheckForDomain(domainId: string, port: number = 25)
   const db = getDb();
   const [domain] = await db.select().from(schema.domains).where(eq(schema.domains.id, domainId)).limit(1);
   if (!domain) return null;
-  const host = await firstMxHost(domainId);
+  // `managed` architectures don't have an SMTP surface to probe.
+  if (smtpCheckDisabled(domain)) return null;
+  // Prefer explicit smtpCheckHost / relayHost, fall back to primary MX.
+  const host = getSmtpCheckHost(domain) ?? (await firstMxHost(domainId));
   if (!host) return null;
   const result = await checkSmtp(host, port);
   await db.insert(schema.smtpChecks).values({

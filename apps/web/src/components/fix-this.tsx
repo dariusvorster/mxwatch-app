@@ -3,15 +3,15 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { resolveFix, resolveBlacklistFix, type FixCopy, type BlacklistFixCopy } from '@/lib/fixes';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/clipboard';
 
 function CopyBlock({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
+    if (await copyToClipboard(text)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {}
+    }
   }
   return (
     <div className="flex items-start gap-2">

@@ -6,6 +6,7 @@ import { useSession } from '@/lib/auth-client';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreRing, scoreTier } from '@/components/score-ring';
+import { copyToClipboard } from '@/lib/clipboard';
 
 type CheckResult = { pass: boolean; score: number; max: number; message: string; fix?: string };
 
@@ -75,7 +76,7 @@ export default function DeliverabilityPage() {
             </pre>
             <button
               type="button"
-              onClick={async () => { try { await navigator.clipboard.writeText(row.testAddress); } catch {} }}
+              onClick={async () => { await copyToClipboard(row.testAddress); }}
               style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, padding: '7px 12px', borderRadius: 7, background: 'transparent', color: 'var(--text2)', border: '1px solid var(--border2)', cursor: 'pointer' }}
             >
               Copy

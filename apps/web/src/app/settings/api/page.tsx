@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/page-header';
+import { copyToClipboard } from '@/lib/clipboard';
 
 export default function ApiTokensPage() {
   const router = useRouter();
@@ -36,11 +37,10 @@ export default function ApiTokensPage() {
 
   async function copy() {
     if (!newPlaintext) return;
-    try {
-      await navigator.clipboard.writeText(newPlaintext);
+    if (await copyToClipboard(newPlaintext)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {}
+    }
   }
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';

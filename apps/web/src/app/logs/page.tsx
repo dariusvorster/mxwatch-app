@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
@@ -26,6 +26,17 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function LogsPage() {
+  // useSearchParams() requires a Suspense boundary under Next.js 15 when the
+  // page is prerendered. Wrap the real body inside one so the build doesn't
+  // bail out of static generation.
+  return (
+    <Suspense fallback={<main>Loading…</main>}>
+      <LogsPageBody />
+    </Suspense>
+  );
+}
+
+function LogsPageBody() {
   const router = useRouter();
   const params = useSearchParams();
   const { data: session, isPending } = useSession();

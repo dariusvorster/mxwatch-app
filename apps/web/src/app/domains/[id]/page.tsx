@@ -19,6 +19,7 @@ import { DomainTopologyCard } from '@/components/domain-topology-card';
 import { DomainHeader } from '@/components/domain-header';
 import { PillTabs, PillTabsList, PillTabsTrigger, PillTabsContent, PillTabsActiveStyle } from '@/components/pill-tabs';
 import { DomainOverview } from '@/components/domain-overview';
+import { DomainLogsTab } from '@/components/domain-logs-tab';
 import { useState } from 'react';
 
 export default function DomainDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -102,6 +103,7 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
           <PillTabsTrigger value="mail-log" className="pt-trigger">Mail log</PillTabsTrigger>
           <PillTabsTrigger value="postmaster" className="pt-trigger">Postmaster</PillTabsTrigger>
           <PillTabsTrigger value="history" className="pt-trigger">History</PillTabsTrigger>
+          <PillTabsTrigger value="logs" className="pt-trigger">Logs</PillTabsTrigger>
         </PillTabsList>
 
         <PillTabsContent value="overview">
@@ -298,6 +300,10 @@ export default function DomainDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-4">
             <DnsHistoryCard domainId={id} />
           </div>
+        </PillTabsContent>
+
+        <PillTabsContent value="logs">
+          <DomainLogsTab domainId={id} />
         </PillTabsContent>
       </PillTabs>
       </div>

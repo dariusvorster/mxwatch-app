@@ -71,6 +71,20 @@ export const deliverabilityRouter = router({
       return { id, testAddress, expiresAt, inboxMode };
     }),
 
+  /** Marks a pending / received (not-yet-analyzed) test as expired so the
+   *  UI's polling stops and the row doesn't reappear on reload. */
+  cancel: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await assertOwned(ctx, input.id);
+      if (row.status === 'analyzed') return { ok: true, alreadyAnalyzed: true };
+      await ctx.db
+        .update(schema.deliverabilityTests)
+        .set({ status: 'expired', expiresAt: new Date() })
+        .where(eq(schema.deliverabilityTests.id, input.id));
+      return { ok: true };
+    }),
+
   /**
    * Mode 3 — manual header paste. User copies full raw headers from their
    * mail client, posts them here, gets a score back + persists a test row.

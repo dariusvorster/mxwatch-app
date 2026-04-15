@@ -16,6 +16,7 @@ export default function DeliverabilityPage() {
   const { data: session, isPending } = useSession();
   const [testId, setTestId] = useState<string | null>(null);
   const create = trpc.deliverability.create.useMutation({ onSuccess: (r) => setTestId(r.id) });
+  const cancelMut = trpc.deliverability.cancel.useMutation();
   const test = trpc.deliverability.get.useQuery(
     { id: testId! },
     {
@@ -92,6 +93,15 @@ export default function DeliverabilityPage() {
             >
               {analyse.isPending ? 'Analysing…' : 'Analyse headers'}
             </button>
+            {paste.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPaste('')}
+                style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Clear
+              </button>
+            )}
             {analyse.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{analyse.error.message}</span>}
           </div>
         </div>
@@ -146,10 +156,17 @@ export default function DeliverabilityPage() {
           </div>
           <button
             type="button"
-            onClick={() => setTestId(null)}
+            onClick={async () => {
+              if (testId) {
+                try { await cancelMut.mutateAsync({ id: testId }); } catch { /* ignore */ }
+              }
+              setTestId(null);
+              void history.refetch();
+            }}
+            disabled={cancelMut.isPending}
             style={{ alignSelf: 'flex-start', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
           >
-            Cancel
+            {cancelMut.isPending ? 'Cancelling…' : 'Cancel'}
           </button>
         </div>
       )}
@@ -168,10 +185,17 @@ export default function DeliverabilityPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setTestId(null); create.mutate({}); }}
+              onClick={() => {
+                setTestId(null);
+                if (mode === 'manual') {
+                  setPaste('');
+                } else {
+                  create.mutate({});
+                }
+              }}
               style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, padding: '9px 14px', borderRadius: 7, background: 'var(--blue)', color: '#fff', border: '1px solid var(--blue)', cursor: 'pointer' }}
             >
-              Run again
+              {mode === 'manual' ? 'Paste another' : 'Run again'}
             </button>
           </div>
 

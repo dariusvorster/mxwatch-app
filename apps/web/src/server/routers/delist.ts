@@ -111,6 +111,21 @@ export const delistRouter = router({
       return { ok: true };
     }),
 
+  /** Triggers an immediate poll for one user-owned request. */
+  checkNow: protectedProcedure
+    .input(z.object({ requestId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await assertRequest(ctx, input.requestId);
+      const { pollDelistRequest } = await import('@/lib/run-delist-poll');
+      await pollDelistRequest(row.id);
+      const [updated] = await ctx.db
+        .select()
+        .from(schema.delistRequests)
+        .where(eq(schema.delistRequests.id, row.id))
+        .limit(1);
+      return updated!;
+    }),
+
   getRBLInfo: publicProcedure
     .input(z.object({ rblName: z.string() }))
     .query(({ input }) => RBL_KNOWLEDGE[input.rblName] ?? null),

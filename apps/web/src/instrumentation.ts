@@ -89,6 +89,10 @@ export async function register() {
   // and rotated files past LOG_RETENTION_DAYS.
   scheduleDailyCert('log-rotation', 2, rotateAndPruneLogs);
 
+  // Delist assistant — poll pending delist requests hourly.
+  const { pollPendingDelistRequests } = await import('./lib/run-delist-poll');
+  scheduleJob({ name: 'delist-poll', intervalMs: HOUR, task: pollPendingDelistRequests });
+
   // Daily at 04:00 UTC: Google Postmaster Tools sync (skipped when integration not configured)
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const { scheduleDailyUtc } = await import('@mxwatch/monitor/scheduler');

@@ -1,4 +1,4 @@
-import type { ParsedMail } from '@mxwatch/monitor/smtp-listener';
+import { simpleParser, type ParsedMail } from 'mailparser';
 import { checkIpAgainstAllBlacklists } from '@mxwatch/monitor';
 import dns from 'node:dns';
 
@@ -142,4 +142,40 @@ export async function scoreDeliverability(
 
   const total = Object.values(checks).reduce((s, c) => s + c.score, 0);
   return { score: Math.round(total * 10) / 10, checks };
+}
+
+/**
+ * Mode 3 — manual header paste. User copies full raw headers from their mail
+ * client and we parse them as if they were a received email. simpleParser
+ * handles header-only input. The sending IP is extracted from the last
+ * `Received:` hop (the one where the headers were added by the recipient
+ * server); HELO comes from the same line when available.
+ */
+export async function scoreFromHeaderPaste(headersPaste: string): Promise<DeliverabilityResult> {
+  const parsed = await simpleParser(headersPaste);
+  const receivedHeaders = parsed.headers.get('received') ?? [];
+  const received: string[] = Array.isArray(receivedHeaders)
+    ? receivedHeaders.map(String)
+    : [String(receivedHeaders)];
+  const sourceIp = extractSendingIp(received);
+  const heloName = extractHelo(received);
+  return scoreDeliverability(parsed, sourceIp, heloName);
+}
+
+/** Walks Received headers newest→oldest looking for the earliest `from X (Y [IP])`
+ *  clause — that's the originating MTA the user is evaluating. */
+function extractSendingIp(received: string[]): string | null {
+  for (let i = received.length - 1; i >= 0; i--) {
+    const m = received[i]!.match(/\[([0-9a-fA-F.:]+)\]/);
+    if (m?.[1] && !m[1].startsWith('127.')) return m[1];
+  }
+  return null;
+}
+
+function extractHelo(received: string[]): string | null {
+  for (let i = received.length - 1; i >= 0; i--) {
+    const m = received[i]!.match(/from\s+([\w.-]+)/i);
+    if (m?.[1] && m[1].includes('.')) return m[1];
+  }
+  return null;
 }

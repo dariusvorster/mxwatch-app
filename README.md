@@ -118,17 +118,19 @@ Requires **Node 20+** and **pnpm 9+**.
 The deepest-visibility part of MxWatch. Once you connect a mail-server API, MxWatch pulls queue / delivery / auth / bounce data and surfaces it where it's actionable.
 
 - **Auto-detection engine** — give it a hostname or IP and it port-scans, grabs the SMTP banner, EHLOs for capabilities, and probes management APIs to identify Stalwart / Mailcow / Postfix / Mailu / Maddy / Haraka / Exchange. Returns confidence + suggested architecture (direct / NAT relay / split / managed).
-- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters: **Stalwart** and **Mailcow**. **Postfix** stub (agent-based, coming). Generic SMTP fallback for everything else.
+- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters: **Stalwart** + **Mailcow** (full deep stats), **Mailu** (REST inventory), **Maddy** + **Haraka** (banner-identified). **Postfix** stub (agent-based, coming). Generic SMTP fallback for anything else.
 - **Queue intelligence** — depth + active/deferred/failed + oldest-message-age, snapshotted every 5 min for the timeline chart.
 - **Auth-failure monitoring** — Dovecot/Stalwart auth-failed events with per-IP aggregation over rolling windows. Brute-force candidates surface at the top.
 - **Bounce intelligence** — DSN parser (RFC 3464) extracts Final-Recipient / Status / Diagnostic-Code, classifies hard / soft / policy, detects RBL mentions in the diagnostic. Correlator joins each bounce with active RBL listings + recent bounce spikes per recipient domain to assign severity and a suggested action.
 - **Per-recipient-domain delivery rates** — the Postmaster-Tools-for-everyone view. Sent / delivered / deferred / bounced / rate per provider (gmail.com, outlook.com, yahoo.com, …) over 1h / 24h / 7d / 30d windows. Anything below 95% gets flagged as a problem domain.
-- **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed).
+- **Routes**: `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed), `/delivery-rates` (cross-server provider rate dashboard with 1h / 24h / 7d / 30d windows).
 
 ### Integrations
 
 - **Stalwart Mail Server** — full V4 adapter (pull stats, queue, delivery events, auth failures, recipient-domain stats) plus the legacy push-webhook receiver.
 - **Mailcow** — full V4 adapter against the X-API-Key REST API; Postfix logs are parsed for delivery events and Dovecot logs for auth failures.
+- **Mailu** — V4.1 adapter with Bearer-token REST against `/api/v1/`; reports domain + user inventory. Queue/log endpoints don't exist on Mailu, so deep stats need the upcoming Postfix agent.
+- **Maddy** / **Haraka** — V4.1 banner-identifying adapters. Confirm the SMTP banner advertises the expected server; deep stats unsupported until log shipping ships.
 - **Postfix** — adapter stub. Agent-based ingest is in design (will tail `/var/log/mail.log` over WebSocket).
 - **Gmail Postmaster Tools** — OAuth connect, daily sync of spam rate / IP reputation / DMARC pass rate.
 - **Mail-log ingest** — HTTP POST endpoint for your MTA to push raw events; auto-correlated against DMARC source IPs.
@@ -219,8 +221,7 @@ Shipped through V4 — auto-detection, multi-server adapters (Stalwart + Mailcow
 
 What's still coming:
 
-- **Postfix agent** — WebSocket-based log/queue ingest from non-API hosts (V4.1)
-- **Mailu / Maddy / Haraka adapters** — V4.1 stubs to flesh out
+- **Postfix agent** — WebSocket-based log/queue ingest from non-API hosts (still pending — biggest remaining V4.1 piece)
 - **Cloud-hosted tier** (`mxwatch.app`) — infrastructure code exists, pending business registration
 - **Team members + workspaces** — multi-user workspaces with owner/admin/viewer roles
 - **Stripe-replacement billing** — Lemon Squeezy integration plumbed in, dormant

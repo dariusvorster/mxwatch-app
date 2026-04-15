@@ -518,7 +518,11 @@ export const serverIntegrations = sqliteTable('server_integrations', {
   name: text('name').notNull(),
   // MailServerType enum — see packages/monitor/src/server-detect.ts
   serverType: text('server_type', {
-    enum: ['stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange', 'unknown'],
+    enum: [
+      'stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange',
+      'resend', 'postmark', 'mailgun', 'sendgrid', 'ses',
+      'unknown',
+    ],
   }).notNull(),
   // NetworkArchitecture enum — see packages/monitor/src/server-detect.ts
   architecture: text('architecture', { enum: ['direct', 'nat_relay', 'split', 'managed'] }).notNull().default('direct'),

@@ -8,7 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-const SERVER_TYPES = ['stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange', 'unknown'] as const;
+const SERVER_TYPES = [
+  'stalwart', 'mailcow', 'postfix', 'postfix_dovecot', 'mailu', 'maddy', 'haraka', 'exchange',
+  'resend', 'postmark', 'mailgun', 'sendgrid', 'ses',
+  'unknown',
+] as const;
 const ARCHITECTURES = ['direct', 'nat_relay', 'split', 'managed'] as const;
 
 export default function NewServerPage() {

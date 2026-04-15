@@ -7,6 +7,11 @@ import { PostfixAdapter } from './postfix';
 import { MailuAdapter } from './mailu';
 import { MaddyAdapter } from './maddy';
 import { HarakaAdapter } from './haraka';
+import { ResendAdapter } from './resend';
+import { PostmarkAdapter } from './postmark';
+import { MailgunAdapter } from './mailgun';
+import { SendGridAdapter } from './sendgrid';
+import { SesAdapter } from './ses';
 
 /**
  * Registry maps detected server type → adapter implementation. As concrete
@@ -25,6 +30,11 @@ export const ADAPTER_REGISTRY: Record<MailServerType, MailServerAdapter> = {
   maddy: new MaddyAdapter(),
   haraka: new HarakaAdapter(),
   exchange: generic,
+  resend: new ResendAdapter(),
+  postmark: new PostmarkAdapter(),
+  mailgun: new MailgunAdapter(),
+  sendgrid: new SendGridAdapter(),
+  ses: new SesAdapter(),
   unknown: generic,
 };
 
@@ -41,4 +51,9 @@ export { PostfixAdapter } from './postfix';
 export { MailuAdapter } from './mailu';
 export { MaddyAdapter } from './maddy';
 export { HarakaAdapter } from './haraka';
+export { ResendAdapter } from './resend';
+export { PostmarkAdapter } from './postmark';
+export { MailgunAdapter } from './mailgun';
+export { SendGridAdapter } from './sendgrid';
+export { SesAdapter } from './ses';
 export { PostfixLogParser, parsePostfixTimestamp } from './postfix-log-parser';

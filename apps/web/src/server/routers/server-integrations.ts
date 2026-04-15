@@ -8,7 +8,9 @@ import { detectMailServer, getAdapter, type MailServerType } from '@mxwatch/moni
 
 const SERVER_TYPES = [
   'stalwart', 'mailcow', 'postfix', 'postfix_dovecot',
-  'mailu', 'maddy', 'haraka', 'exchange', 'unknown',
+  'mailu', 'maddy', 'haraka', 'exchange',
+  'resend', 'postmark', 'mailgun', 'sendgrid', 'ses',
+  'unknown',
 ] as const;
 const ARCHITECTURES = ['direct', 'nat_relay', 'split', 'managed'] as const;
 

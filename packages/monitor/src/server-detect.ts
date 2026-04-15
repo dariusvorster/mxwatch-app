@@ -11,6 +11,12 @@ export type MailServerType =
   | 'maddy'
   | 'haraka'
   | 'exchange'
+  // Cloud providers (integrations spec Tier 4)
+  | 'resend'
+  | 'postmark'
+  | 'mailgun'
+  | 'sendgrid'
+  | 'ses'
   | 'unknown';
 
 export type NetworkArchitecture = 'direct' | 'nat_relay' | 'split' | 'managed';

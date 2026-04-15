@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { IconPlus, IconDot } from '@/components/icons';
+import { trpc } from '@/lib/trpc';
+import { useSession } from '@/lib/auth-client';
 
 // Path segments that exist only as URL groupings — there's no top-level route
 // page for them. Breadcrumbs render these as plain text so Next.js doesn't
@@ -74,6 +76,7 @@ export function Topbar() {
 
       {/* Right cluster */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <ErrorBadge />
         <div
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -98,5 +101,31 @@ export function Topbar() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function ErrorBadge() {
+  const { data: session } = useSession();
+  const summary = trpc.logs.errorSummary.useQuery(undefined, {
+    enabled: !!session,
+    refetchInterval: 60_000,
+  });
+  const n = summary.data?.total ?? 0;
+  if (n === 0) return null;
+  return (
+    <Link
+      href="/logs?level=error"
+      title={`${n} error${n === 1 ? '' : 's'} in the last 24h`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '4px 10px', borderRadius: 10,
+        background: 'var(--red-dim)', color: 'var(--red)',
+        border: '1px solid var(--red-border)',
+        fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500,
+        textDecoration: 'none',
+      }}
+    >
+      ⚠ {n} error{n === 1 ? '' : 's'}
+    </Link>
   );
 }

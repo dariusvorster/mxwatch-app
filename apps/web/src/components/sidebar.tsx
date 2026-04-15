@@ -220,6 +220,7 @@ export function Sidebar() {
           matches: /^\/settings\/alerts/,
         },
         { label: 'History', href: '/history', icon: IconHistory, matches: /^\/history/ },
+        { label: 'Logs', href: '/logs', icon: IconActivity, matches: /^\/logs/ },
       ],
     },
   ];

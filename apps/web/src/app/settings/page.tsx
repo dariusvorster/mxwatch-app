@@ -21,6 +21,7 @@ interface Tile {
 const TILES: Tile[] = [
   { href: '/onboarding', title: 'Setup wizard', description: 'Re-run the guided setup: domain, architecture, integration, alerts.', icon: IconPulse },
   { href: '/settings/security', title: 'Security', description: '2FA, sessions, API tokens, IP allowlist, password, activity log.', icon: IconShield },
+  { href: '/settings/logs', title: 'Logging', description: 'Log level, retention, export, clear.', icon: IconActivity },
   { href: '/settings/alerts', title: 'Alert channels', description: 'Email, Slack, ntfy, and webhook destinations for alerts.', icon: IconBell },
   { href: '/settings/smtp', title: 'SMTP ingest', description: 'How DMARC aggregate reports reach MxWatch.', icon: IconMail },
   { href: '/settings/google', title: 'Google Postmaster Tools', description: 'Gmail-side spam rate and IP reputation for your domains.', icon: IconCert },

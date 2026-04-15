@@ -164,6 +164,20 @@ export const logsRouter = router({
     return (u?.logLevel ?? 'info') as typeof LEVELS[number];
   }),
 
+  /** Wipes the user's visible log rows. Destructive; the UI gates with a
+   *  typed-confirmation. System-null rows stay so the startup banner isn't
+   *  nuked by individual users. */
+  clear: protectedProcedure
+    .input(z.object({ confirm: z.literal('CLEAR LOGS') }))
+    .mutation(async ({ ctx }) => {
+      const ownedIds = await ownedDomainIds(ctx);
+      const conditions = [eq(schema.appLogs.userId, ctx.user.id)];
+      if (ownedIds.length > 0) conditions.push(inArray(schema.appLogs.domainId, ownedIds));
+      await ctx.db.delete(schema.appLogs).where(or(...conditions));
+      void logger.info('system', 'Logs cleared by user', { userId: ctx.user.id });
+      return { ok: true };
+    }),
+
   logLevelSet: protectedProcedure
     .input(z.enum(LEVELS))
     .mutation(async ({ ctx, input }) => {

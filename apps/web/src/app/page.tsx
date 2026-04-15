@@ -8,6 +8,7 @@ import { SummaryCard } from '@/components/summary-card';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreRing, scoreTier } from '@/components/score-ring';
 import { AlertRow } from '@/components/alert-row';
+import { ScoreSparkline } from '@/components/score-sparkline';
 import { IconBell, IconShield, IconActivity } from '@/components/icons';
 import { humanizeAlertType, severityFor, relativeTime } from '@/lib/alert-display';
 
@@ -32,6 +33,9 @@ export default function DashboardPage() {
   );
   const smtpQueries = trpc.useQueries((t) =>
     (domains.data ?? []).map((d) => t.checks.latestSmtp({ domainId: d.id }, { enabled: !!session }))
+  );
+  const historyQueries = trpc.useQueries((t) =>
+    (domains.data ?? []).map((d) => t.checks.snapshotHistory({ domainId: d.id, limit: 30 }, { enabled: !!session }))
   );
 
   useEffect(() => {
@@ -154,6 +158,7 @@ export default function DashboardPage() {
                 snap={snapQueries[i]?.data as any}
                 blacklist={blQueries[i]?.data as any}
                 smtp={smtpQueries[i]?.data as any}
+                history={historyQueries[i]?.data as any}
               />
             ))}
           </div>
@@ -422,11 +427,13 @@ function DomainHealthCard({
   snap,
   blacklist,
   smtp,
+  history,
 }: {
   domain: DomainRow;
   snap?: Snap;
   blacklist?: BlacklistRow[];
   smtp?: SmtpRow;
+  history?: Array<{ healthScore: number | null }>;
 }) {
   const score = snap?.healthScore ?? null;
   const tier = score != null ? scoreTier(score) : 'good';
@@ -522,8 +529,18 @@ function DomainHealthCard({
               color: 'var(--text3)',
             }}
           >
-            <span>
-              {snap?.checkedAt ? `checked ${relativeTime(snap.checkedAt)}` : '—'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <span>{snap?.checkedAt ? `checked ${relativeTime(snap.checkedAt)}` : '—'}</span>
+              {history && history.length >= 2 && (
+                <ScoreSparkline
+                  values={[...history]
+                    .reverse()
+                    .map((s) => s.healthScore)
+                    .filter((v): v is number => v != null)}
+                  width={90}
+                  height={20}
+                />
+              )}
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {!rblChecked ? (

@@ -22,7 +22,7 @@ import { DomainOverview } from '@/components/domain-overview';
 import { DomainLogsTab } from '@/components/domain-logs-tab';
 import { DomainIntegrationsWidget } from '@/components/domain-integrations-widget';
 import { DelistWizard } from '@/components/delist-wizard';
-import { rblKeyForDisplayName } from '@mxwatch/monitor';
+import { rblKeyForDisplayName } from '@/lib/rbl-display-names';
 import { useState } from 'react';
 
 export default function DomainDetailPage({ params }: { params: Promise<{ id: string }> }) {

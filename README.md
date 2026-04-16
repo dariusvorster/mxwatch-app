@@ -51,8 +51,6 @@ If you run your own mail server (Stalwart, Postfix, Mailcow, iRedMail), manage m
 - [Configuration reference](#configuration-reference)
 - [Deployment](#deployment)
   - [Single container](#single-container)
-  - [Hetzner CX22 — recommended cloud setup](#hetzner-cx22--recommended-cloud-setup)
-  - [Behind a reverse proxy](#behind-a-reverse-proxy)
 - [Litestream backups](#litestream-backups)
 - [First-run setup](#first-run-setup)
 - [Upgrading](#upgrading)
@@ -319,58 +317,6 @@ volumes:
 ```bash
 docker compose up -d
 ```
-
-### Hetzner CX22 — recommended cloud setup
-
-For a public-facing MxWatch instance with proper TLS, Hetzner CX22 is the optimal choice: €3.79/mo, 2 vCPU, 4GB RAM, 40GB NVMe, and critically — **port 25 is not blocked** (most cloud providers block outbound port 25, but Hetzner CX22 does not block inbound 25/2525 for DMARC report ingestion).
-
-**Provision the server:**
-
-```bash
-# Ubuntu 24.04 LTS — Helsinki (HEL1) recommended
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-
-# Install Caddy for HTTPS
-apt install caddy
-
-# Clone MxWatch
-git clone https://github.com/mxwatch/mxwatch /opt/mxwatch
-cd /opt/mxwatch
-cp .env.example .env
-# Edit .env
-```
-
-**Caddy configuration (`/etc/caddy/Caddyfile`):**
-
-```
-mxwatch.yourdomain.com {
-    reverse_proxy localhost:3000
-}
-```
-
-Caddy handles HTTPS automatically via Let's Encrypt. No certificate management needed.
-
-**Start MxWatch:**
-
-```bash
-docker compose up -d
-systemctl restart caddy
-```
-
-Total monthly cost: ~€7.60 (CX22 €3.79 + Cloudflare R2 ~€0.01 for DB backups + Resend free tier for alerts).
-
-### Behind a reverse proxy
-
-If MxWatch is running behind Nginx, Caddy, or [ProxyOS](https://proxyos.app) (recommended), expose only port 3000 to the proxy. Port 2525 should be exposed directly to the internet (or your mail server network) for DMARC report ingestion.
-
-**With ProxyOS:**
-
-In the ProxyOS dashboard, create a route pointing to your MxWatch container on port 3000. Enable SSO if you want Authentik/Authelia protecting the dashboard. Port 2525 is managed separately — expose it at the network level, not through the proxy.
-
-**Proxying 2525:**
-
-If you need to proxy the SMTP listener (e.g. you only have one public IP and want DMARC reports to arrive at port 25), use a TCP proxy (HAProxy or Caddy TCP) in front of MxWatch on port 2525. Do not use an HTTP reverse proxy for the SMTP port.
 
 ---
 

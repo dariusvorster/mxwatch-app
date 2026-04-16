@@ -1,329 +1,492 @@
-<p align="center">
-  <img src="screenshots/logo.svg" alt="MxWatch" width="96" />
-</p>
+<div align="center">
 
-<h1 align="center">MxWatch</h1>
+<svg width="80" height="80" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="16" fill="#185FA5"/>
+  <path d="M12 38 L22 24 L32 34 L42 20 L52 38" stroke="#E6F1FB" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="52" cy="38" r="3" fill="#4A9EFF"/>
+  <circle cx="32" cy="34" r="3" fill="#4A9EFF"/>
+  <circle cx="12" cy="38" r="3" fill="#4A9EFF"/>
+</svg>
 
-<p align="center">
-  <strong>Self-hosted email infrastructure monitoring for developers who run their own mail servers.</strong>
-</p>
+# MxWatch
 
-<p align="center">
-  <a href="#install"><strong>Install</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#screenshots"><strong>Screenshots</strong></a> ·
-  <a href="#architecture"><strong>Architecture</strong></a> ·
-  <a href="#roadmap"><strong>Roadmap</strong></a>
-</p>
+**Monitor your email infrastructure. Before your emails stop arriving.**
 
-<p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" />
-  <img alt="Made for Stalwart" src="https://img.shields.io/badge/Made%20for-Stalwart-4a9eff" />
-</p>
+Real-time DMARC parsing, blacklist monitoring, DNS health checks, and deliverability scoring — self-hosted or managed.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-185FA5.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io%2Fmxwatch%2Fmxwatch-185FA5)](https://github.com/mxwatch/mxwatch/pkgs/container/mxwatch)
+[![Part of Homelab OS](https://img.shields.io/badge/Homelab%20OS-family-185FA5)](https://homelabos.app)
+
+</div>
 
 ---
 
-## Why MxWatch?
+## What is MxWatch?
 
-Running your own email server is hard not because of the initial setup — it's the ongoing invisible maintenance that catches you out. Your IP silently hits a Spamhaus blacklist. Your DMARC reports are XML files nobody reads. Your SPF record drifts past the 10-lookup limit after a provider swap. You find out when a client emails asking why they're not getting your invoices.
+MxWatch is a self-hosted email infrastructure monitoring dashboard. It watches the things that determine whether your email actually gets delivered — DMARC alignment, blacklist status, DNS record health, SMTP connectivity, and TLS certificates — and alerts you before problems become incidents.
 
-MxWatch continuously monitors the things that actually affect deliverability:
+If you run your own mail server (Stalwart, Postfix, Mailcow, iRedMail), manage multiple domains, or just want to know the moment one of your domains lands on a blacklist, MxWatch is built for you.
 
-- **SPF / DKIM / DMARC health** — with an actionable "Fix this" drawer on every issue
-- **12 RBL blacklists** — cross-checked against your sending IP every few hours
-- **DMARC aggregate reports** — parsed from raw XML into a usable dashboard
-- **Outbound SMTP reachability** — response time, TLS version, banner
-- **TLS certificate expiry** — mail / web / MX hostnames
-- **DNS change history** — diff view for every SPF/DKIM/DMARC snapshot
-- **Alerts** — email, Slack, ntfy, webhook
-- **Mail-log correlation** — optional Stalwart log ingest that lets you answer "is this IP in DMARC reports actually mine?"
+### What it monitors
+
+- **DMARC reports** — receives and parses aggregate XML reports from Gmail, Microsoft, Yahoo and every major inbox provider. Shows pass/fail breakdown per sending source, per domain, over time
+- **Blacklist / RBL status** — checks 8 major real-time blacklists every 2 hours (Spamhaus ZEN, Barracuda, SORBS, URIBL, SpamCop, Spamrats, Mailspike, SEM-BACKSCATTER). Alerts the moment any IP or domain gets listed
+- **DNS health** — validates SPF, DKIM, and DMARC records on a 6-hour schedule. Catches misconfigured records, missing selectors, and policy mismatches before they affect deliverability
+- **SMTP connectivity** — tests port 25 and 587 every 30 minutes. Checks TLS validity, banner response, and response time. Detects outages before your users do
+- **TLS certificates** — monitors certificate expiry on all mail-related hostnames. Alerts with enough lead time to renew without disruption
+- **Deliverability scoring** — aggregates all check results into a per-domain score. One number that tells you how your domain looks to receiving mail servers
 
 ---
 
-## Install
+## Table of Contents
 
-### Docker Compose (recommended)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [DMARC report ingestion](#dmarc-report-ingestion)
+- [Monitoring schedule](#monitoring-schedule)
+- [Multi-domain setup](#multi-domain-setup)
+- [Alert system](#alert-system)
+- [Architecture](#architecture)
+- [Configuration reference](#configuration-reference)
+- [Deployment](#deployment)
+  - [Single container](#single-container)
+  - [Hetzner CX22 — recommended cloud setup](#hetzner-cx22--recommended-cloud-setup)
+  - [Behind a reverse proxy](#behind-a-reverse-proxy)
+- [Litestream backups](#litestream-backups)
+- [First-run setup](#first-run-setup)
+- [Upgrading](#upgrading)
+- [Part of the Homelab OS family](#part-of-the-homelab-os-family)
+
+---
+
+## Quick start
 
 ```bash
-git clone https://github.com/dariusvorster/mxwatch-app.git
-cd mxwatch-app
+git clone https://github.com/mxwatch/mxwatch
+cd mxwatch
 cp .env.example .env
-# Edit .env — at minimum set MXWATCH_SECRET to a random 32-char string
+# Edit .env — set BETTER_AUTH_SECRET and RESEND_API_KEY at minimum
 docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Sign up and the 4-step onboarding wizard walks you through adding a domain, confirming your mail-server architecture (auto-detected from MX + SMTP banner), optionally connecting to Stalwart/Postfix/Mailcow for deep stats, and setting alert preferences. You can re-run or resume the wizard any time from Settings.
+Open `http://localhost:3000`, create your account, and add your first domain. MxWatch will start running checks immediately.
 
-### Local development
+---
 
-```bash
-pnpm install
-cp .env.example .env
-pnpm db:push
-pnpm dev
+## How it works
+
+MxWatch has three input channels:
+
+**1. Active polling** — scheduled jobs run on a fixed interval, querying DNS resolvers, RBL lookup services, and your SMTP endpoints. Results are stored in SQLite and surfaced in the dashboard.
+
+**2. SMTP listener** — a lightweight SMTP server runs inside the container on port 2525, receiving DMARC aggregate reports sent by inbox providers to your `rua` address. Reports arrive as gzip-compressed XML attachments and are parsed and stored automatically.
+
+**3. Alert engine** — after every check, results are evaluated against your configured alert rules. Alerts fire via email (V1), Slack and webhooks (V2).
+
+All state lives in a single SQLite database file. Litestream streams the SQLite WAL to Cloudflare R2 every 60 seconds — continuous off-site backup with no external database required.
+
+---
+
+## DMARC report ingestion
+
+DMARC aggregate reports (the `rua=` destination in your DMARC record) need to be routed to MxWatch's built-in SMTP listener.
+
+### Cloud (managed) — mxwatch.app
+
+Point your `rua` at MxWatch's shared ingest address:
+
+```dns
+_dmarc.yourdomain.com  TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@mxwatch.app"
 ```
 
-Requires **Node 20+** and **pnpm 9+**.
+### Self-hosted
+
+Point your `rua` at your own MxWatch instance. The SMTP listener runs on port 2525 internally, mapped to whatever external port you expose:
+
+```dns
+_dmarc.yourdomain.com  TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@mail.yourdomain.com"
+```
+
+Then configure your mail server (Stalwart, Postfix, etc.) to forward mail addressed to `dmarc@` to `localhost:2525` (or your MxWatch container IP on port 2525).
+
+Alternatively, expose port 2525 directly and use an address that resolves to your MxWatch host. Inbox providers will deliver reports directly over SMTP.
+
+**Important:** MxWatch accepts DMARC reports from any sending server — no authentication required on the SMTP listener. This is intentional — inbox providers send reports without credentials. Do not expose port 2525 on the public internet without rate limiting at your network edge.
+
+### What gets parsed
+
+Each DMARC aggregate report contains:
+- Reporting organisation (Gmail, Outlook, Yahoo, etc.)
+- Date range covered
+- Number of messages that passed DMARC alignment
+- Number that failed
+- Per-message-source breakdown: SPF result, DKIM result, disposition
+
+MxWatch stores the raw XML and the parsed summary. You can drill into any report to see which sending IPs are failing alignment and why.
 
 ---
 
-## Features
+## Monitoring schedule
 
-### Onboarding
-
-4-step guided setup on first login (resumable from a dashboard banner or `Settings → Setup wizard`):
-
-1. **Add your first domain** — verification + immediate DNS check
-2. **Mail server architecture** — auto-detects MX + IP + SMTP banner (Stalwart / Postfix / Mailcow / Exchange), picks direct / NAT relay / split / managed
-3. **Server integration** (optional) — pre-populated from the Step 2 auto-detect: server type (Stalwart / Mailcow / Postfix / …), architecture, and API base URL. Add a token to enable deep stats (queue depth, delivery rates, auth failures, bounces), or skip for external-only monitoring
-4. **Alert preferences** — pre-filled email + per-rule toggles (blacklist, DNS change, health drop)
-
-### Monitoring
-
-| | |
-|---|---|
-| **Domain health score** (0–100) | Composite of SPF / DKIM / DMARC / MX status. Coloured: ≥80 green, 60–79 amber, <60 red. |
-| **SPF / DKIM / DMARC parsing** | Record validity, lookup count, key length, policy. |
-| **Multi-selector DKIM** | Add / remove selectors per domain; all checked every cycle. |
-| **12 RBL suite** | Spamhaus ZEN / PBL / SBL / DBL, Barracuda, SORBS DUHL/SPAM, Invaluement, SpamCop, UCEPROTECT, MXToolbox, Passive Spam Block. |
-| **Outbound SMTP health** | TLS version, STARTTLS negotiation, response time, banner capture. |
-| **TLS certificate tracking** | Mail / web / MX hostnames, days-to-expiry alerts. |
-| **DNS diff history** | Before/after view on every SPF/DKIM/DMARC change. |
-| **IP reputation over time** | 90-day reputation chart with incident markers; cross-domain summary at `/ip-reputation` lists every owned domain with current listings + score. |
-
-### DMARC reporting
-
-- Custom SMTP listener on port 2525 accepts aggregate reports as email attachments (ZIP / GZIP / raw XML)
-- Per-report detail page with per-source-IP breakdown
-- Pass / fail timeline chart (30-day window)
-- **Unexpected senders** detection — source IPs that sent mail as your domain but aren't in your SPF `ip4:` / `ip6:` literals
-
-### Security
-
-- **Two-factor authentication** — TOTP via any authenticator app (1Password, Authy, Google Authenticator, Bitwarden…). Backup codes issued once at setup and redeemable one-time on `/auth/2fa`. Cloud mode redirects signed-in users without 2FA to `/setup/2fa`.
-- **Session management** — `/settings/security` lists every active session (UA + IP + created-age) with per-session revoke and "log out all other sessions". Current session is flagged.
-- **API tokens** — account-scoped bearer tokens with named scopes (`domains:read`, `checks:read`, `reports:read`, `alerts:read`, `alerts:write`), optional expiry, and per-token last-used tracking. Token plaintext (`mxw_live_…` / `mxw_self_…`) is shown exactly once; only a SHA-256 hash is stored.
-- **IP allowlist** — any number of IPs or CIDRs; when non-empty, every tRPC request is forbidden unless the client IP matches. `/auth/blocked` page surfaces the caller's IP so they can unlock themselves from the right network.
-- **Password change** — 12-char minimum, revokes other sessions, surfaced collapsed on the Security page.
-- **Activity log** — last 50 user-scoped security events (login, session revoke, token create/revoke, allowlist change, password change, 2FA changes).
-
-### Logging
-
-Every action and every scheduled job writes to two sinks: append-only NDJSON (`$LOG_DIR/mxwatch.log` + daily rotated archives) and a SQLite `app_logs` table searchable from the UI. Daily rotation keeps rotated files + SQLite rows inside `LOG_RETENTION_DAYS` (default 30).
-
-- **Per-user log level** — `debug / info / warn / error`, changeable at `/settings/logs`; the running logger picks it up immediately via `setLogLevel` (no restart).
-- **Job runs** — one `job_runs` row per scheduled-job invocation with status (`running / success / partial / failed`), duration, and items-processed/succeeded/failed counters. AdapterUnsupported throws don't count as failures.
-- **`/logs` page** — level / category / search filters + the last N job runs at the top. Rows expand to show the full detail JSON + stack trace.
-- **Domain-detail Logs tab** — job runs + log entries scoped to that domain with an All / Errors / Jobs client-side filter.
-- **Topbar error badge** — red pill ⚠ N errors that appears when `app_logs` has >0 error rows in the last 24h (refreshes every 60s), linking straight to `/logs?level=error`.
-- **NDJSON export** — download the last 7 or 30 days as `mxwatch-logs-YYYY-MM-DD.ndjson` from `/logs` or `/settings/logs`.
-- **Sensitive-key redaction** — the logger sanitizes `password`, `secret`, `token`, `key`, `apikey`, `totpsecret`, `passwordhash`, `authorization` substrings to `[REDACTED]` before writing to either sink.
-
-### RBL delist assistant
-
-Every time a domain's sending IP (or domain) shows up on a blacklist, the Blacklists tab on `/domains/[id]` renders a per-listing **delist wizard** that:
-
-- Explains why the RBL lists this IP / domain (`listingReasons`) and the severity impact on major mailbox providers.
-- Points to the right action for the RBL's method — `self_service_form` (open the delist form), `email_request` (open mail client to the provider's delist address), `auto_expires` (start auto-expire tracking for SpamCop / Mailspike), `reputation_based` / `portal_registration` / `manual_review`.
-- Persists a `delist_requests` row with status (`not_submitted / submitted / pending / cleared / rejected / expired`) + a JSON timeline of every transition.
-- Polls the RBL hourly via the new `delist-poll` cron and flips to `cleared` the moment the listing drops off; dispatches an `rbl_delisted` alert through the user's active channels.
-- On cloud + paid plans, a **Generate delist request** button drafts a professional <200-word delist body via Anthropic's Messages API using the domain's latest SPF / DKIM / DMARC state (`ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` env vars). Self-hosted users see an upsell note instead.
-
-Knowledge base lives at `packages/monitor/src/delist/rbl-knowledge.ts` — 11 RBLs today (Spamhaus ZEN/DBL, Barracuda, SORBS, SpamCop, Spamrats, Mailspike, Invaluement, SEM-BACKSCATTER, URIBL, Microsoft SNDS). Extend that file plus the display-name → key map in the same module to add a new list.
-
-### Alerts
-
-- Channels: **email**, **Slack** (incoming webhook), **ntfy** (self-hosted ntfy works too), **generic webhook** with optional HMAC secret
-- Rule types: `blacklist_listed`, `dns_record_changed`, `health_score_drop`, `dmarc_fail_spike`, `dmarc_report_received`
-- Per-domain rule toggles with editable thresholds
-- Test-alert button on every channel
-- **Watched-domain alerts** — external (non-owned) domains can opt into RBL-listing and DMARC-record-change notifications; the watched-check cron compares each new snapshot to the previous one and dispatches via your active channels on a real transition (no first-snapshot noise).
-
-### Tools
-
-- **Record Builder** — SPF wizard with common provider templates and a live lookup counter, DMARC wizard with migration guidance
-- **Deliverability Test** — send to a unique inbox, get a mail-tester-style 0–10 score. Self-hosters pick one of three inbox modes on first use (see below); cloud continues to use `*@inbox.mxwatch.app`.
-- **DNS Propagation Checker** (`/tools/propagation`) — queries 19 public resolvers across 5 regions, with optional substring match against an expected value (e.g. confirm a new SPF record has propagated everywhere)
-- **IP warm-up scheduler** — geometric ramp plan with daily targets
-
-### Server intelligence (V4)
-
-The deepest-visibility part of MxWatch. Once you connect a mail-server API, MxWatch pulls queue / delivery / auth / bounce data and surfaces it where it's actionable.
-
-- **Auto-detection engine** — give it a hostname or IP and it port-scans, grabs the SMTP banner, EHLOs for capabilities, and probes management APIs to identify Stalwart / Mailcow / Postfix / Mailu / Maddy / Haraka / Exchange. Returns confidence + suggested architecture (direct / NAT relay / split / managed).
-- **Adapter registry** — one interface (`MailServerAdapter`), six methods (`test`, `getStats`, `getQueue`, `getDeliveryEvents`, `getAuthFailures`, `getRecipientDomainStats`). Concrete adapters:
-  - **Self-hosted (full deep stats)**: Stalwart, Mailcow
-  - **Self-hosted (REST + basic stats)**: Mailu (enables its log endpoint when `LOG_API=True`), Mail-in-a-Box, Postal, Modoboa
-  - **Self-hosted (banner-identified)**: Maddy, Haraka
-  - **Cloud providers**: Resend, Postmark, Mailgun (US + EU), SendGrid; Amazon SES via SNS webhook (no SigV4 yet)
-  - **Postfix** stub (agent-based, planned). Generic SMTP fallback for anything else.
-- **Queue intelligence** — depth + active/deferred/failed + oldest-message-age, snapshotted every 5 min for the timeline chart.
-- **Auth-failure monitoring** — Dovecot/Stalwart auth-failed events with per-IP aggregation over rolling windows. Brute-force candidates surface at the top.
-- **Bounce intelligence** — DSN parser (RFC 3464) extracts Final-Recipient / Status / Diagnostic-Code, classifies hard / soft / policy, detects RBL mentions in the diagnostic. Correlator joins each bounce with active RBL listings + recent bounce spikes per recipient domain to assign severity and a suggested action.
-- **Per-recipient-domain delivery rates** — the Postmaster-Tools-for-everyone view. Sent / delivered / deferred / bounced / rate per provider (gmail.com, outlook.com, yahoo.com, …) over 1h / 24h / 7d / 30d windows. Anything below 95% gets flagged as a problem domain.
-- **Cloud webhook endpoints** — each provider posts delivery events to its own URL under `/api/webhooks/`: `resend`, `postmark`, `mailgun`, `sendgrid`. All four parse provider-native payloads (HardBounce / SpamComplaint / failed / dropped / spamreport), match the sender's domain to an owned domain, and persist rows into both `delivery_events` (full feed) and `bounce_events` (bounces + complaints only).
-- **Webhook signature verification** — each endpoint fail-closes with a 503 until a signing secret is configured. Svix HMAC-SHA256 for Resend, HMAC-SHA256 for Mailgun, Ed25519 for SendGrid (Signed Event Webhook), HTTP Basic for Postmark. Env vars: `MXWATCH_WEBHOOK_RESEND_SECRET`, `MXWATCH_WEBHOOK_MAILGUN_SIGNING_KEY`, `MXWATCH_WEBHOOK_SENDGRID_PUBKEY`, `MXWATCH_WEBHOOK_POSTMARK_BASIC_AUTH`.
-- **Relay-inbox setup** — for the four cloud providers, MxWatch can auto-provision a `mxwatch-test-*@<domain>` inbound route via the provider API (Resend Inbound Routes, Postmark Inbound Webhook, Mailgun Routes, SendGrid Inbound Parse) so deliverability tests land back in MxWatch with no extra infrastructure. Falls back to manual-setup instructions when the API call fails. Triggered from the per-integration card on `/settings/integrations`.
-- **Routes**: `/settings/integrations` (unified list + per-row Test / Open / Remove / relay-inbox setup), `/servers` (list), `/servers/new` (detect + connect wizard), `/servers/[id]` (Overview / Queue / Auth failures / Bounces / Delivery rates tabs), `/bounces` (cross-domain unified feed), `/delivery-rates` (cross-server provider rate dashboard with 1h / 24h / 7d / 30d windows). Domain detail's Overview tab carries a **per-domain integrations widget** with the 24h delivered/bounced/deferred/rejected/complaint breakdown + recent-events mini-feed sourced from `delivery_events`.
-
-### Deliverability inbox (self-hosted)
-
-Cloud users get `*@inbox.mxwatch.app` out of the box. Self-hosters pick a mode on first visit to the deliverability test page (or from `Settings → Deliverability inbox`):
-
-| Mode | Requirements | How it works |
+| Check | Interval | What it does |
 |---|---|---|
-| **Own domain inbox** (recommended) | A domain + port 25 reachable on the MxWatch host | Publish `MX <inbox-domain> 10 <mxwatch-host>` at your DNS provider. MxWatch's SMTP listener accepts `test-*@<inbox-domain>` and scores automatically. |
-| **Stalwart relay** | A Stalwart integration configured in MxWatch | MxWatch auto-uploads a Sieve script (`vnd.stalwart.http` extension) that forwards `mxwatch-test-*@<your-domain>` to the `/api/webhooks/stalwart-delivery` endpoint over HMAC. If auto-upload fails, the script is shown for manual paste. |
-| **Manual header paste** | Nothing | Send a test email, open "Show original" in your mail client, paste the raw headers into MxWatch. Scored by the same engine. |
+| DNS | Every 6 hours | Resolves and validates SPF, DKIM (all configured selectors), and DMARC records. Checks for policy changes, missing records, syntax errors |
+| RBL | Every 2 hours | Queries 8 real-time blacklists for your domain and sending IPs. Fires alert immediately on new listing |
+| SMTP | Every 30 minutes | Tests port 25 and 587 on your mail hostname. Checks STARTTLS, reads banner, measures response time |
+| Certificate | Daily | Checks TLS cert expiry on all monitored mail hostnames. Alerts at 30 days and 7 days before expiry |
+| DMARC | On receipt | Parses incoming aggregate reports as they arrive. No polling — event-driven |
 
-Setup lives at `/setup/inbox`. The three modes share one scoring engine (10 checks across Authentication / Infrastructure / Content), so historical scores remain comparable when you switch modes.
-
-### Integrations
-
-- **Stalwart Mail Server** — full V4 adapter (pull stats, queue, delivery events, auth failures, recipient-domain stats) plus the legacy push-webhook receiver.
-- **Mailcow** — full V4 adapter against the X-API-Key REST API; Postfix logs are parsed for delivery events and Dovecot logs for auth failures.
-- **Mailu** — V4.1 adapter with Bearer-token REST against `/api/v1/`; reports domain + user inventory. Queue/log endpoints don't exist on Mailu, so deep stats need the upcoming Postfix agent.
-- **Maddy** / **Haraka** — V4.1 banner-identifying adapters. Confirm the SMTP banner advertises the expected server; deep stats unsupported until log shipping ships.
-- **Postfix** — adapter stub. Agent-based ingest is in design (will tail `/var/log/mail.log` over WebSocket).
-- **Gmail Postmaster Tools** — OAuth connect, daily sync of spam rate / IP reputation / DMARC pass rate.
-- **Mail-log ingest** — HTTP POST endpoint for your MTA to push raw events; auto-correlated against DMARC source IPs.
-
-### API
-
-Read-only REST at `/api/v1/` (account-scoped bearer tokens from `/settings/api`):
-
-- `GET /api/v1/domains`
-- `GET /api/v1/domains/{id}`
-- `GET /api/v1/domains/{id}/dns?format=csv`
-- `GET /api/v1/domains/{id}/reports?format=csv|json`
-- `GET /api/v1/domains/{id}/reports.pdf` — monthly report PDF
-- `GET /api/v1/alerts?onlyActive=1`
+All checks run in-process via `node-cron`. No Redis, no external queue, no worker processes. V1 is intentionally simple — the cron approach handles dozens of domains without issue. BullMQ + Redis is the V2 upgrade path for high-volume cloud deployments.
 
 ---
 
-## Screenshots
+## Multi-domain setup
 
-Screenshots live in [`screenshots/`](screenshots/). Contributions welcome — drop a PNG in that folder and add it here.
+MxWatch is built for operators running multiple domains. There is no artificial domain limit — self-hosted is unlimited, cloud tiers are unlimited. Each domain is monitored independently with its own check history, DMARC reports, alert rules, and deliverability score.
 
-<!-- Replace these when you add real screenshots -->
-<!--
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="Dashboard" width="720" />
-  <img src="screenshots/domain-detail.png" alt="Domain detail" width="720" />
-  <img src="screenshots/dmarc.png" alt="DMARC reports" width="720" />
-</p>
--->
+### Adding a domain
+
+1. Go to **Domains → Add domain**
+2. Enter the domain (e.g. `homelabza.com`)
+3. MxWatch provides a DNS verification record to confirm ownership
+4. Add the TXT record to your DNS
+5. Click **Verify** — MxWatch checks for the record
+6. Once verified, monitoring starts immediately
+
+### DKIM selectors
+
+MxWatch checks DKIM by querying the DKIM selector record. Add your selector(s) under the domain settings (e.g. `mail`, `dkim`, `s1`). MxWatch queries `{selector}._domainkey.yourdomain.com` and validates the public key.
+
+V1 supports one selector per domain. V2 adds multiple selectors (important for key rotation).
+
+---
+
+## Alert system
+
+Alert rules are configured per domain. When a check result matches a rule, MxWatch fires the alert via the configured channel.
+
+### Alert types
+
+| Type | Fires when |
+|---|---|
+| `rbl_listed` | Domain or IP appears on any configured RBL |
+| `rbl_delisted` | Domain or IP is removed from an RBL (resolved) |
+| `dns_record_missing` | SPF, DKIM, or DMARC record not found |
+| `dns_record_changed` | Any DNS record changes unexpectedly |
+| `dmarc_policy_changed` | DMARC policy changes (e.g. `quarantine` → `none`) |
+| `dmarc_fail_spike` | DMARC failure rate exceeds threshold in a report |
+| `smtp_down` | Port 25 or 587 unreachable |
+| `smtp_tls_invalid` | TLS handshake fails or cert is untrusted |
+| `cert_expiring` | Certificate expiry within N days |
+| `cert_expired` | Certificate has expired |
+| `deliverability_drop` | Overall deliverability score drops below threshold |
+
+### Alert channels
+
+- **V1:** Email via Resend (`alerts@mxwatch.app` or your configured address)
+- **V2:** Slack, webhook (POST to any URL), Zulip
+
+### Alert deduplication
+
+MxWatch does not re-fire the same alert continuously. Once an alert fires, it is suppressed until the condition resolves. When it resolves, a recovery notification is sent. This prevents alert fatigue on persistent issues.
 
 ---
 
 ## Architecture
 
 ```
-mxwatch-app/
-├── apps/
-│   └── web/                    # Next.js 15 App Router — UI + tRPC + API routes
-├── packages/
-│   ├── db/                     # Drizzle schema + SQLite client (WAL mode)
-│   ├── monitor/                # DNS, RBL, DMARC parser, SMTP, cert, propagation, record builder
-│   ├── alerts/                 # Email / Slack / ntfy / webhook dispatchers + AES-GCM config encryption
-│   └── types/                  # Shared TypeScript types
-├── tests/                      # Vitest suite
-├── docker-compose.yml          # Single-container prod deploy (with migrator service)
-├── Dockerfile                  # Multi-stage: deps → builder → migrator → runner
-└── mxwatch-spec.md             # Original product spec
+mxwatch container
+│
+├── Next.js 15 (port 3000)
+│   ├── App Router pages — dashboard, domains, reports, alerts
+│   ├── tRPC API — all data access
+│   └── better-auth — session management
+│
+├── node-cron jobs (in-process)
+│   ├── DNS checker    — every 6h
+│   ├── RBL checker    — every 2h
+│   ├── SMTP checker   — every 30m
+│   └── Cert checker   — daily
+│
+├── SMTP listener (port 2525)
+│   └── Receives DMARC aggregate reports
+│       Parses gzip XML → stores in dmarcReports table
+│
+├── SQLite database (/data/mxwatch.db)
+│   └── Single file, all data
+│
+└── Litestream sidecar (in-process)
+    └── Streams SQLite WAL → Cloudflare R2 every 60s
 ```
 
-**Stack:** Next.js 15 • TypeScript • tRPC 11 • Drizzle ORM + better-sqlite3 • better-auth • Tailwind CSS v4 • Recharts • node-cron replacement (plain `setInterval`) • custom SMTP listener on `smtp-server`
+### Tech stack
 
-**Scheduled jobs** (all in-process, no Redis):
-
-| Job | Interval | Purpose |
+| Layer | Choice | Why |
 |---|---|---|
-| `dns-health-check` | hourly | SPF / DKIM / DMARC / MX sweep |
-| `blacklist-check` | 6h | 12-RBL check for domains with a configured sending IP |
-| `smtp-check` | 2h | SMTP health against primary MX |
-| `cert-check` | daily 03:00 UTC | TLS cert expiry |
-| `watched-check` | 2h | External domains sweep |
-| `stalwart-pull` | 60s | Legacy Stalwart management-API stats (V3.5 path) |
-| `server-stats-pull` | 60s | V4 — `getStats` against every server integration; opportunistic queue snapshot |
-| `queue-snapshot` | 5m | V4 — full `getQueue` snapshot (active/deferred/failed/oldest-age) |
-| `auth-failure-pull` | 5m | V4 — `getAuthFailures`, deduplicated against the last 10 min |
-| `recipient-domain-aggregate` | hourly | V4 — pulls 24h delivery events, aggregates per recipient domain into rollups |
-| `postmaster-sync` | daily 04:00 UTC | Gmail Postmaster Tools sync |
-| `log-rotation` | daily 02:00 UTC | Rotates mxwatch.log → mxwatch.YYYY-MM-DD.log; prunes rotated files + app_logs rows past LOG_RETENTION_DAYS |
-| `delist-poll` | hourly | Re-checks every pending delist_requests row; flips to cleared and fires rbl_delisted alerts when the listing drops |
+| Framework | Next.js 15 (App Router) | Full-stack, single deployment |
+| API | tRPC v11 | End-to-end type safety |
+| ORM | Drizzle ORM | Lightweight, SQLite native |
+| Database | SQLite + Litestream | Zero ops, continuous backup |
+| Auth | better-auth | Email/password V1, SSO V2 |
+| Jobs | node-cron | In-process, no Redis needed |
+| SMTP | smtp-server (npm) | Minimal SMTP for DMARC ingest |
+| Email | Resend | Reliable transactional email |
+| Deploy | Single Docker container | One command, no orchestration |
+
+### Database schema
+
+```
+domains          — id, userId, domain, verifiedAt, createdAt
+dkimSelectors    — id, domainId, selector
+dnsChecks        — id, domainId, spfRecord, dkimValid, dmarcRecord, dmarcPolicy, checkedAt
+rblChecks        — id, domainId, rblName, listed, listedReason, checkedAt
+smtpChecks       — id, domainId, host, port, tlsValid, responseTime, checkedAt
+dmarcReports     — id, domainId, reportId, orgName, dateRange, passCount, failCount, rawXml, receivedAt
+alertRules       — id, domainId, type, channel, config, enabled
+alertHistory     — id, ruleId, firedAt, resolvedAt, message
+users            — id, email, passwordHash, createdAt
+```
 
 ---
 
-## Configuration
+## Configuration reference
 
-Everything is in `.env`. See [`.env.example`](.env.example) for the full list. Essentials:
+All configuration is via environment variables. Set these in `.env` or your `docker-compose.yml`.
 
-| Variable | Purpose |
+### Required
+
+| Variable | Description |
 |---|---|
-| `DATABASE_URL` | SQLite path, default `./data/mxwatch.db` |
-| `MXWATCH_SECRET` | 32-char secret for better-auth + alert config encryption |
-| `SMTP_PORT` | DMARC listener port, default `2525` (non-root) |
-| `NEXT_PUBLIC_APP_URL` | Public URL, e.g. `https://mxwatch.example.com` |
-| `ALERT_SMTP_*` | Outbound SMTP for email alerts |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional — enables Postmaster Tools |
-| `LOG_LEVEL` | `debug / info / warn / error`, default `info` |
-| `LOG_DIR` | Where NDJSON files live (default `/data/logs` inside Docker) |
-| `LOG_RETENTION_DAYS` | Daily-rotation retention (default 30) |
-| `NEXT_PUBLIC_MXWATCH_CLOUD` | `1` = force 2FA enrolment on every signed-in user |
+| `BETTER_AUTH_SECRET` | Secret key for session signing and encryption. Min 32 characters. Generate with `openssl rand -base64 32`. |
+| `RESEND_API_KEY` | Resend API key for outbound alert emails. Get one at [resend.com](https://resend.com). |
+
+### Optional — instance
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `file:./data/mxwatch.db` | Path to SQLite database file |
+| `NEXTAUTH_URL` | `http://localhost:3000` | Public URL of your MxWatch instance. Used in alert email links. |
+| `SMTP_LISTENER_PORT` | `2525` | Internal port for the DMARC report SMTP listener |
+| `ALERTS_FROM_EMAIL` | `alerts@mxwatch.app` | From address for outbound alert emails |
+| `ENCRYPTION_KEY` | — | Key for encrypting sensitive stored data. Generate with `openssl rand -base64 32`. |
+
+### Optional — Litestream (recommended)
+
+| Variable | Description |
+|---|---|
+| `LITESTREAM_R2_BUCKET` | Cloudflare R2 bucket name for database backups |
+| `LITESTREAM_R2_ACCESS_KEY_ID` | R2 access key ID |
+| `LITESTREAM_R2_SECRET_ACCESS_KEY` | R2 secret access key |
+| `LITESTREAM_R2_ENDPOINT` | R2 endpoint URL (`https://<account-id>.r2.cloudflarestorage.com`) |
+
+If Litestream variables are not set, the database is not backed up. Not recommended for production.
 
 ---
 
-## Roadmap
+## Deployment
 
-Shipped through V4 — auto-detection, multi-server adapters (Stalwart + Mailcow), bounce intelligence, queue snapshots, auth-failure monitoring, per-recipient-domain delivery rates, plus the new server-intelligence UI section. Build orders captured in [`mxwatch-v3.5-spec.md`](mxwatch-v3.5-spec.md) and [`mxwatch-v4-spec.md`](mxwatch-v4-spec.md).
+### Single container
 
-What's still coming:
+The simplest deployment. Everything runs in one container.
 
-- **Postfix agent** — WebSocket-based log/queue ingest from non-API hosts (still pending — biggest remaining V4.1 piece)
-- **Cloud-hosted tier** (`mxwatch.app`) — infrastructure code exists, pending business registration
-- **Team members + workspaces** — multi-user workspaces with owner/admin/viewer roles
-- **Stripe-replacement billing** — Lemon Squeezy integration plumbed in, dormant
+**`docker-compose.yml`:**
 
----
+```yaml
+services:
+  mxwatch:
+    image: ghcr.io/mxwatch/mxwatch:latest
+    container_name: mxwatch
+    restart: unless-stopped
+    ports:
+      - "3000:3000"     # dashboard
+      - "2525:2525"     # DMARC report SMTP listener
+    volumes:
+      - mxwatch_data:/app/data
+    environment:
+      - BETTER_AUTH_SECRET=your-secret-here
+      - NEXTAUTH_URL=https://mail.yourdomain.com
+      - RESEND_API_KEY=re_xxxxxxxxxxxx
+      - LITESTREAM_R2_BUCKET=mxwatch-db-backups
+      - LITESTREAM_R2_ACCESS_KEY_ID=
+      - LITESTREAM_R2_SECRET_ACCESS_KEY=
+      - LITESTREAM_R2_ENDPOINT=https://<id>.r2.cloudflarestorage.com
 
-## Troubleshooting
-
-### Don't use `pnpm db:push` against a running database
-
-`drizzle-kit push` prompts to truncate tables when it can't reconcile a non-null column addition (hit this on `users.onboarding_step` during V3.6). Accepting truncation deletes your users. MxWatch auto-migrates at boot via `packages/db/src/migrate.ts` (idempotent `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE … ADD COLUMN` only when missing), so self-hosters never need to run `db:push`. Use `pnpm db:studio` if you want to inspect the DB, or invoke `applyPendingMigrations()` directly; leave `db:push` for dev-only dry schema resets.
-
-### Database migrations after upgrade
-
-V3.6+ added a `users.onboarding_step` column and V4 added five new tables (`server_integrations`, `queue_snapshots`, `auth_failure_events`, `bounce_events`, `recipient_domain_stats`). On boot the app runs `applyPendingMigrations` from `packages/db/src/migrate.ts` — it's idempotent (`PRAGMA table_info` + `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` only when the column is missing) and also defensively backfills V3.5 columns on the `domains` table. No manual `db:push` required after pulling.
-
-If you upgraded straight from <V3.5 and see `tRPC` 500s on `domains.list`, restart the container — the migration runs once at startup.
-
-### DKIM selectors showing as "not found" after upgrade
-
-Older builds accepted the full DNS form (e.g. `mail._domainkey.example.com`) and stored it verbatim, which caused the DNS probe to double-append `._domainkey`. Current code normalizes on input and at probe time, but pre-existing rows need a one-time cleanup:
+volumes:
+  mxwatch_data:
+```
 
 ```bash
-node scripts/migrations/normalize-dkim-selectors.mjs
-# or in Docker:
-# docker compose exec web node scripts/migrations/normalize-dkim-selectors.mjs /app/data/mxwatch.db
+docker compose up -d
 ```
 
-Safe to re-run — idempotent.
+### Hetzner CX22 — recommended cloud setup
+
+For a public-facing MxWatch instance with proper TLS, Hetzner CX22 is the optimal choice: €3.79/mo, 2 vCPU, 4GB RAM, 40GB NVMe, and critically — **port 25 is not blocked** (most cloud providers block outbound port 25, but Hetzner CX22 does not block inbound 25/2525 for DMARC report ingestion).
+
+**Provision the server:**
+
+```bash
+# Ubuntu 24.04 LTS — Helsinki (HEL1) recommended
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Install Caddy for HTTPS
+apt install caddy
+
+# Clone MxWatch
+git clone https://github.com/mxwatch/mxwatch /opt/mxwatch
+cd /opt/mxwatch
+cp .env.example .env
+# Edit .env
+```
+
+**Caddy configuration (`/etc/caddy/Caddyfile`):**
+
+```
+mxwatch.yourdomain.com {
+    reverse_proxy localhost:3000
+}
+```
+
+Caddy handles HTTPS automatically via Let's Encrypt. No certificate management needed.
+
+**Start MxWatch:**
+
+```bash
+docker compose up -d
+systemctl restart caddy
+```
+
+Total monthly cost: ~€7.60 (CX22 €3.79 + Cloudflare R2 ~€0.01 for DB backups + Resend free tier for alerts).
+
+### Behind a reverse proxy
+
+If MxWatch is running behind Nginx, Caddy, or [ProxyOS](https://proxyos.app) (recommended), expose only port 3000 to the proxy. Port 2525 should be exposed directly to the internet (or your mail server network) for DMARC report ingestion.
+
+**With ProxyOS:**
+
+In the ProxyOS dashboard, create a route pointing to your MxWatch container on port 3000. Enable SSO if you want Authentik/Authelia protecting the dashboard. Port 2525 is managed separately — expose it at the network level, not through the proxy.
+
+**Proxying 2525:**
+
+If you need to proxy the SMTP listener (e.g. you only have one public IP and want DMARC reports to arrive at port 25), use a TCP proxy (HAProxy or Caddy TCP) in front of MxWatch on port 2525. Do not use an HTTP reverse proxy for the SMTP port.
 
 ---
 
-## Contributing
+## Litestream backups
 
-Issues and PRs welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the quick version.
+MxWatch uses [Litestream](https://litestream.io) for continuous SQLite replication to Cloudflare R2. Litestream runs as a sidecar process inside the container, streaming the SQLite write-ahead log to R2 every 60 seconds.
 
-- Run tests: `pnpm test`
-- Typecheck: `pnpm typecheck`
-- Before PR: make sure `pnpm test && pnpm --filter @mxwatch/web build` passes
+**Why 60 seconds:** this is the critical setting. A shorter interval unnecessarily increases R2 write operations. A longer interval increases potential data loss on failure. 60 seconds is the correct value — do not change it.
+
+### Setting up Cloudflare R2
+
+1. In your Cloudflare dashboard → R2 → Create bucket: `mxwatch-db-backups`
+2. Create an R2 API token with Object Read & Write permissions
+3. Note the endpoint URL: `https://<account-id>.r2.cloudflarestorage.com`
+4. Set the four `LITESTREAM_R2_*` environment variables
+
+### Restoring from backup
+
+If the container or its data volume is lost:
+
+```bash
+# Stop any running MxWatch container
+docker compose down
+
+# Restore the database from R2
+docker run --rm \
+  -e LITESTREAM_R2_ACCESS_KEY_ID=your-key \
+  -e LITESTREAM_R2_SECRET_ACCESS_KEY=your-secret \
+  -v mxwatch_data:/app/data \
+  ghcr.io/mxwatch/mxwatch:latest \
+  litestream restore \
+    -o /app/data/mxwatch.db \
+    s3://mxwatch-db-backups/mxwatch.db
+
+# Start MxWatch with restored database
+docker compose up -d
+```
+
+Recovery point objective: maximum 60 seconds of data loss. Recovery time objective: under 5 minutes for a fresh server.
+
+---
+
+## First-run setup
+
+On first start with an empty database, MxWatch presents a two-step setup:
+
+**Step 1 — Create account**
+Enter your email and password. This creates the admin account. There are no invite flows in V1 — the first account created is the admin.
+
+**Step 2 — Add your first domain**
+Enter a domain you control (e.g. `homelabza.com`). MxWatch generates a DNS verification TXT record. Add it to your domain's DNS, then click **Verify**. Monitoring starts immediately after verification — first check results appear within a few minutes.
+
+**Recommended: configure DMARC reporting**
+
+After adding a domain, update your DMARC record to point `rua` at your MxWatch instance:
+
+```dns
+_dmarc.yourdomain.com  TXT  "v=DMARC1; p=quarantine; rua=mailto:dmarc@your-mxwatch-domain.com"
+```
+
+DMARC reports typically arrive within 24 hours from major inbox providers.
+
+---
+
+## Upgrading
+
+MxWatch uses Drizzle ORM migrations — the database schema is migrated automatically on startup.
+
+```bash
+# Pull latest image
+docker compose pull
+
+# Restart with new image (migrations run automatically)
+docker compose up -d
+```
+
+Before upgrading, Litestream has already backed up your database to R2. If the upgrade fails:
+
+```bash
+# Roll back to previous image
+docker compose down
+docker compose up -d --no-pull  # uses cached previous image
+```
+
+Check the [releases page](https://github.com/mxwatch/mxwatch/releases) for breaking changes before upgrading between major versions.
+
+---
+
+## Part of the Homelab OS family
+
+MxWatch is one product in the [Homelab OS](https://homelabos.app) family — a suite of self-hosted infrastructure tools that share a common design system and integrate with each other.
+
+| Product | Description | Status |
+|---|---|---|
+| **MxWatch** | Email infrastructure monitoring | Available |
+| [ProxyOS](https://proxyos.app) | Reverse proxy management | Available |
+| [BackupOS](https://backupos.app) | Unified backup management | Coming soon |
+| [InfraOS](https://infraos.app) | Infrastructure control plane | Coming soon |
+| LockBoxOS | Credential vault | Coming soon |
+| PatchOS | Patch management | Coming soon |
+| AccessOS | Directory & identity | Coming soon |
+
+### MxWatch + ProxyOS
+
+If you're running ProxyOS alongside MxWatch, ProxyOS detects mail-related routes (domains serving on port 25/587/993, hostnames matching `mail.*`, `smtp.*`, `imap.*`) and flags them to MxWatch automatically. Your proxy and your mail monitoring stay in sync without manual configuration.
 
 ---
 
 ## License
 
-[MIT](LICENSE) © Darius Vorster
+MIT — see [LICENSE](LICENSE).
+
+MxWatch is free and open source. The managed cloud tier ([app.mxwatch.app](https://app.mxwatch.app)) is a commercial service built on the same open source codebase.
+
+---
+
+<div align="center">
+<sub>Built by <a href="https://homelabos.app">Homelab OS</a> · <a href="https://mxwatch.app">mxwatch.app</a></sub>
+</div>

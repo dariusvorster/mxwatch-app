@@ -256,18 +256,22 @@ All configuration is via environment variables. Set these in `.env` or your `doc
 
 | Variable | Description |
 |---|---|
-| `BETTER_AUTH_SECRET` | Secret key for session signing and encryption. Min 32 characters. Generate with `openssl rand -base64 32`. |
-| `RESEND_API_KEY` | Resend API key for outbound alert emails. Get one at [resend.com](https://resend.com). |
+| `MXWATCH_SECRET` | Secret key for session signing and encryption. Min 32 characters. Generate with `openssl rand -base64 32`. |
+| `ALERT_SMTP_HOST` | SMTP host for sending alert emails (e.g. `smtp.resend.com`). |
+| `ALERT_SMTP_USER` | SMTP username. |
+| `ALERT_SMTP_PASS` | SMTP password or API key. |
 
 ### Optional — instance
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | `file:./data/mxwatch.db` | Path to SQLite database file |
-| `NEXTAUTH_URL` | `http://localhost:3000` | Public URL of your MxWatch instance. Used in alert email links. |
-| `SMTP_LISTENER_PORT` | `2525` | Internal port for the DMARC report SMTP listener |
-| `ALERTS_FROM_EMAIL` | `alerts@mxwatch.app` | From address for outbound alert emails |
-| `ENCRYPTION_KEY` | — | Key for encrypting sensitive stored data. Generate with `openssl rand -base64 32`. |
+| `DATABASE_URL` | `./data/mxwatch.db` | Path to SQLite database file |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Public URL of your MxWatch instance. Used in alert email links and OAuth callbacks. |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | Auth base URL — set to the same value as `NEXT_PUBLIC_APP_URL`. |
+| `SMTP_PORT` | `2525` | Internal port for the DMARC report SMTP listener |
+| `ALERT_SMTP_FROM` | `mxwatch@example.com` | From address for outbound alert emails |
+| `LOG_LEVEL` | `info` | Minimum log level to persist (`debug` / `info` / `warn` / `error`) |
+| `LOG_RETENTION_DAYS` | `30` | Days of log rows and rotated files to keep |
 
 ### Optional — Litestream (recommended)
 

@@ -1163,7 +1163,7 @@ function IssuesCard({ domain, health }: { domain: string; health: LiveHealth }) 
       <CardHeader><CardTitle>Issues ({issues.length})</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {issues.map((issue) => (
-          <FixThis key={issue.type} issue={issue} domain={domain} />
+          <FixThis key={issue} issue={issue} domain={domain} />
         ))}
       </CardContent>
     </Card>

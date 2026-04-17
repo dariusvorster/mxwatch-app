@@ -118,8 +118,8 @@ export default function BlacklistsHistoryPage() {
                             <div style={{ fontSize: 12, color: 'var(--text3)' }}>No timeline entries recorded.</div>
                           ) : (
                             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
-                              {timeline.map((e, i) => (
-                                <li key={i} style={{ marginBottom: 4 }}>
+                              {timeline.map((e) => (
+                                <li key={`${e.ts}-${e.event}`} style={{ marginBottom: 4 }}>
                                   <span style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', marginRight: 8 }}>
                                     {new Date(e.ts).toLocaleString()}
                                   </span>

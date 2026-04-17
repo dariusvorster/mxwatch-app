@@ -343,9 +343,9 @@ function FirstRunCard({ hasChannels }: { hasChannels: boolean }) {
         Three short steps and you're monitoring.
       </div>
       <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {steps.map((s, i) => (
+        {steps.map((s) => (
           <li
-            key={i}
+            key={s.title}
             style={{
               display: 'flex',
               alignItems: 'flex-start',

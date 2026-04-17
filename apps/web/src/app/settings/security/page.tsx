@@ -98,6 +98,7 @@ function SessionsSection() {
         <CardDescription>Every browser / device currently signed in. Revoke any you don't recognize.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {list.isLoading && <p style={{ fontSize: 13, color: 'var(--text3)' }}>Loading…</p>}
         {list.data?.map((s) => (
           <div key={s.id} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
@@ -154,6 +155,7 @@ function ApiTokensSection() {
         <CardDescription>Bearer tokens for the REST API. Shown in plaintext exactly once.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {list.isLoading && <p style={{ fontSize: 13, color: 'var(--text3)' }}>Loading…</p>}
         <div style={{ display: 'grid', gap: 6 }}>
           {(list.data ?? []).map((t) => {
             const revoked = !!t.revokedAt;

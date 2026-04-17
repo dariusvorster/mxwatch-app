@@ -929,7 +929,7 @@ function DomainTimelineCard({ domainId }: { domainId: string }) {
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {items.slice(0, 40).map((it, i) => (
               <li
-                key={i}
+                key={`${it.kind}-${String(it.ts)}-${i}`}
                 style={{
                   display: 'flex',
                   gap: 10,
@@ -1162,8 +1162,8 @@ function IssuesCard({ domain, health }: { domain: string; health: LiveHealth }) 
     <Card>
       <CardHeader><CardTitle>Issues ({issues.length})</CardTitle></CardHeader>
       <CardContent className="space-y-2">
-        {issues.map((issue, i) => (
-          <FixThis key={i} issue={issue} domain={domain} />
+        {issues.map((issue) => (
+          <FixThis key={issue.type} issue={issue} domain={domain} />
         ))}
       </CardContent>
     </Card>

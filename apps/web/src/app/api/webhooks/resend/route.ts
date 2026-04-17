@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { handleDeliveryEvent } from '@/lib/handle-delivery-event';
 import { verifyResend } from '@/lib/webhook-verify';

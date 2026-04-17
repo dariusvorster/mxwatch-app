@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getDb, schema, nanoid } from '@mxwatch/db';
 import { parseStalwartBody } from '@mxwatch/monitor/stalwart-parser';

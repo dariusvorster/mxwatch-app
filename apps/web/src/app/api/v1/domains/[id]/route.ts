@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getDb, schema } from '@mxwatch/db';
 import { and, desc, eq } from 'drizzle-orm';
 import { authenticateApiRequest, unauthorized } from '@/lib/user-api-auth';

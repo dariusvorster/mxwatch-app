@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, schema } from '@mxwatch/db';
 import { eq, desc } from 'drizzle-orm';

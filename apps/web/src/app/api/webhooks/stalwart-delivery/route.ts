@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { simpleParser } from 'mailparser';
 import { getDb, schema, logger } from '@mxwatch/db';

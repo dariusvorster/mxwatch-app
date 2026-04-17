@@ -99,4 +99,9 @@ export async function register() {
     const { syncAllPostmaster } = await import('./lib/sync-postmaster');
     scheduleDailyUtc('postmaster-sync', 4, syncAllPostmaster);
   }
+
+  // Monday at 09:00 UTC: weekly digest email (guard inside sendWeeklyDigests checks getDay)
+  const { scheduleDailyUtc: scheduleDigest } = await import('@mxwatch/monitor/scheduler');
+  const { sendWeeklyDigests } = await import('./lib/weekly-digest');
+  scheduleDigest('weekly-digest', 9, sendWeeklyDigests);
 }

@@ -23,6 +23,10 @@ export const users = sqliteTable('users', {
   logLevel: text('log_level').default('info'),
   // better-auth twoFactor plugin tracks enablement on the user row.
   twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
+  // Public status page token — shareable URL, no auth required.
+  statusToken: text('status_token').unique(),
+  // Weekly digest email opt-in (default on for self-hosted).
+  digestEnabled: integer('digest_enabled', { mode: 'boolean' }).default(true),
 });
 
 // Activity log — security-relevant user actions (login, settings change, etc.)

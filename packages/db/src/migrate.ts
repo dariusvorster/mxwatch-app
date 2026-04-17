@@ -40,6 +40,9 @@ export function applyPendingMigrations(dbUrl: string): void {
     addColumn('users', 'log_level', `TEXT DEFAULT 'info'`);
     // Phase 3b — better-auth twoFactor plugin
     addColumn('users', 'two_factor_enabled', `INTEGER DEFAULT 0`);
+    // Public status page + weekly digest
+    addColumn('users', 'status_token', `TEXT UNIQUE`);
+    addColumn('users', 'digest_enabled', `INTEGER DEFAULT 1`);
 
     // Self-hosted deliverability inbox — extra columns on the existing
     // deliverability_tests table.

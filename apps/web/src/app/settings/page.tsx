@@ -30,6 +30,7 @@ const TILES: Tile[] = [
   { href: '/settings/google', title: 'Google Postmaster Tools', description: 'Gmail-side spam rate and IP reputation for your domains.', icon: IconCert },
   { href: '/settings/warmup', title: 'IP warm-up', description: 'Ramp send volume on a new sending IP.', icon: IconActivity },
   { href: '/settings/api', title: 'API tokens', description: 'Read-only API access for dashboards and scripts.', icon: IconSettings },
+  { href: '/settings/status', title: 'Status page & digest', description: 'Shareable public health URL and weekly email digest.', icon: IconGlobe },
 ];
 
 export default function SettingsIndex() {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomBytes } from 'node:crypto';
 import { router, protectedProcedure } from '../trpc';
 import { schema, nanoid } from '@mxwatch/db';
 import { desc, eq } from 'drizzle-orm';
@@ -70,6 +71,43 @@ export const settingsRouter = router({
         .update(schema.userApiTokens)
         .set({ revokedAt: new Date() })
         .where(eq(schema.userApiTokens.id, input.id));
+      return { ok: true };
+    }),
+
+  // ── Status page token ──────────────────────────────────────────────────────
+  getStatusToken: protectedProcedure.query(async ({ ctx }) => {
+    const [row] = await ctx.db
+      .select({ statusToken: schema.users.statusToken, digestEnabled: schema.users.digestEnabled })
+      .from(schema.users)
+      .where(eq(schema.users.id, ctx.user.id))
+      .limit(1);
+    return { token: row?.statusToken ?? null, digestEnabled: row?.digestEnabled ?? true };
+  }),
+
+  generateStatusToken: protectedProcedure.mutation(async ({ ctx }) => {
+    const token = randomBytes(24).toString('hex');
+    await ctx.db
+      .update(schema.users)
+      .set({ statusToken: token })
+      .where(eq(schema.users.id, ctx.user.id));
+    return { token };
+  }),
+
+  revokeStatusToken: protectedProcedure.mutation(async ({ ctx }) => {
+    await ctx.db
+      .update(schema.users)
+      .set({ statusToken: null })
+      .where(eq(schema.users.id, ctx.user.id));
+    return { ok: true };
+  }),
+
+  setDigestEnabled: protectedProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(schema.users)
+        .set({ digestEnabled: input.enabled })
+        .where(eq(schema.users.id, ctx.user.id));
       return { ok: true };
     }),
 });

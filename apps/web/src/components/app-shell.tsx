@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { useSession } from '@/lib/auth-client';
 
-const AUTH_ROUTES = ['/login', '/signup', '/onboarding', '/setup/2fa', '/auth'];
+const AUTH_ROUTES = ['/login', '/signup', '/onboarding', '/setup/2fa', '/auth', '/status'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/';

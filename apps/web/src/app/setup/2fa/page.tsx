@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,13 +94,16 @@ export default function Setup2FAPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {totpUri && (
-              <div>
-                <Label>otpauth URI (tap-and-hold / paste into app)</Label>
-                <code style={{
-                  display: 'block', marginTop: 6, padding: 10,
-                  background: 'var(--surf2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  fontFamily: 'var(--mono)', fontSize: 11, wordBreak: 'break-all', userSelect: 'all',
-                }}>{totpUri}</code>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  padding: 16, background: '#fff', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', display: 'inline-block',
+                }}>
+                  <QRCodeSVG value={totpUri} size={192} level="M" />
+                </div>
+                <p style={{ fontFamily: 'var(--sans)', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                  Scan with your authenticator app (1Password, Authy, Google Authenticator…)
+                </p>
               </div>
             )}
             {manualKey && (

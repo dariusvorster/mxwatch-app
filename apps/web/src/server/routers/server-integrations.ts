@@ -12,10 +12,14 @@ function getAppUrl(): string {
 }
 
 const SERVER_TYPES = [
+  // Self-hosted MTA / full-stack
   'stalwart', 'mailcow', 'postfix', 'postfix_dovecot',
   'mailu', 'maddy', 'haraka', 'exchange',
+  'miab', 'postal', 'modoboa', 'exim', 'zimbra',
+  'dovecot', 'hmailserver',
+  // Cloud ESPs
   'resend', 'postmark', 'mailgun', 'sendgrid', 'ses',
-  'miab', 'postal', 'modoboa',
+  'brevo', 'sparkpost', 'mandrill', 'mailjet', 'zoho',
   'unknown',
 ] as const;
 const ARCHITECTURES = ['direct', 'nat_relay', 'split', 'managed'] as const;

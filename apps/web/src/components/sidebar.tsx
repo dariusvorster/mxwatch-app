@@ -239,10 +239,13 @@ export function Sidebar() {
       items: [
         {
           label: 'Alert rules', href: '/settings/alerts', icon: IconBell,
-          badge: activeAlertCount > 0 ? { text: String(activeAlertCount), variant: 'red' } : undefined,
           matches: /^\/settings\/alerts/,
         },
-        { label: 'Alert history', href: '/alerts/history', icon: IconHistory, matches: /^\/alerts\/history/ },
+        {
+          label: 'Alert history', href: '/alerts/history', icon: IconHistory,
+          badge: activeAlertCount > 0 ? { text: String(activeAlertCount), variant: 'red' } : undefined,
+          matches: /^\/alerts\/history/,
+        },
         { label: 'Activity feed', href: '/history', icon: IconHistory, matches: /^\/history/ },
         { label: 'Logs', href: '/logs', icon: IconActivity, matches: /^\/logs/ },
       ],
